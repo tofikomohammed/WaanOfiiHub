@@ -15,6 +15,7 @@ import '../data/blog_repository.dart';
 import '../models/blog_post.dart';
 import '../models/post_comment.dart';
 import 'widgets/audio_player_widget.dart';
+import 'widgets/multi_image_gallery_widget.dart';
 
 final postDetailProvider = FutureProvider.family<BlogPost?, String>((
   ref,
@@ -185,7 +186,10 @@ class _BlogDetailScreenState extends ConsumerState<BlogDetailScreen> {
           body: ListView(
             padding: const EdgeInsets.all(16.0),
             children: [
-              if (post.coverUrl != null && post.coverUrl!.isNotEmpty)
+              // Multi-Image Gallery or Cover Image
+              if (post.imageMedia.isNotEmpty)
+                MultiImageGalleryWidget(images: post.imageMedia)
+              else if (post.coverUrl != null && post.coverUrl!.isNotEmpty)
                 ClipRRect(
                   borderRadius: BorderRadius.circular(12),
                   child: CachedNetworkImage(

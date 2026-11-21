@@ -9,6 +9,7 @@ import '../../rbac/data/rbac_repository.dart';
 import '../data/blog_repository.dart';
 import '../data/blog_storage_service.dart';
 import '../models/blog_post.dart';
+import 'widgets/audio_player_widget.dart';
 
 class BlogCreateScreen extends ConsumerStatefulWidget {
   const BlogCreateScreen({super.key});
@@ -21,42 +22,58 @@ class _BlogCreateScreenState extends ConsumerState<BlogCreateScreen> {
   final _formKey = GlobalKey<FormState>();
   final _titleController = TextEditingController();
   final _bodyController = TextEditingController();
-  final _mediaUrlController = TextEditingController();
+  final _coverUrlController = TextEditingController();
 
   String _selectedType = 'text';
   String _selectedCategory = BlogCategories.news;
   bool _publishNow = true;
   bool _isLoading = false;
+
+  // Media state
   bool _isUploadingMedia = false;
+  double _uploadProgress = 0.0;
+  String _uploadStatus = '';
+  final List<UploadedMediaItem> _galleryItems = [];
+  UploadedMediaItem? _audioItem;
 
   @override
   void dispose() {
     _titleController.dispose();
     _bodyController.dispose();
-    _mediaUrlController.dispose();
+    _coverUrlController.dispose();
     super.dispose();
   }
 
-  Future<void> _handlePickImage(ImageSource source) async {
+  Future<void> _handlePickCoverImage(ImageSource source) async {
     final uid = ref.read(blogRepositoryProvider).currentUserId;
-    if (uid == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please log in to upload media.')),
-      );
-      return;
-    }
+    if (uid == null) return;
 
-    setState(() => _isUploadingMedia = true);
+    setState(() {
+      _isUploadingMedia = true;
+      _uploadProgress = 0.0;
+      _uploadStatus = 'Selecting image...';
+    });
+
     try {
-      final url = await ref
-          .read(blogStorageServiceProvider)
-          .pickAndUploadCoverImage(authorId: uid, source: source);
-      if (url != null && mounted) {
+      final item = await ref.read(blogStorageServiceProvider).pickAndUploadCoverImage(
+            authorId: uid,
+            source: source,
+            onProgress: (prog, status) {
+              if (mounted) {
+                setState(() {
+                  _uploadProgress = prog;
+                  _uploadStatus = status;
+                });
+              }
+            },
+          );
+
+      if (item != null && mounted) {
         setState(() {
-          _mediaUrlController.text = url;
+          _coverUrlController.text = item.publicUrl;
         });
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Image uploaded successfully!')),
+          const SnackBar(content: Text('Cover image uploaded successfully!')),
         );
       }
     } catch (e) {
@@ -64,6 +81,125 @@ class _BlogCreateScreenState extends ConsumerState<BlogCreateScreen> {
     } finally {
       if (mounted) setState(() => _isUploadingMedia = false);
     }
+  }
+
+  Future<void> _handlePickGalleryImages() async {
+    final uid = ref.read(blogRepositoryProvider).currentUserId;
+    if (uid == null) return;
+
+    setState(() {
+      _isUploadingMedia = true;
+      _uploadProgress = 0.0;
+      _uploadStatus = 'Selecting images...';
+    });
+
+    try {
+      final items = await ref
+          .read(blogStorageServiceProvider)
+          .pickAndUploadGalleryImages(
+            authorId: uid,
+            onProgress: (prog, status) {
+              if (mounted) {
+                setState(() {
+                  _uploadProgress = prog;
+                  _uploadStatus = status;
+                });
+              }
+            },
+          );
+
+      if (items.isNotEmpty && mounted) {
+        setState(() {
+          _galleryItems.addAll(items);
+          if (_coverUrlController.text.trim().isEmpty) {
+            _coverUrlController.text = items.first.publicUrl;
+          }
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('${items.length} images added to gallery.'),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) ErrorHandler.showSnackBar(context, e);
+    } finally {
+      if (mounted) setState(() => _isUploadingMedia = false);
+    }
+  }
+
+  Future<void> _handlePickAudio() async {
+    final uid = ref.read(blogRepositoryProvider).currentUserId;
+    if (uid == null) return;
+
+    // Use ImagePicker to pick audio file or video/audio
+    final picker = ImagePicker();
+    final xFile = await picker.pickMedia();
+    if (xFile == null) return;
+
+    setState(() {
+      _isUploadingMedia = true;
+      _uploadProgress = 0.0;
+      _uploadStatus = 'Reading audio file...';
+    });
+
+    try {
+      final bytes = await xFile.readAsBytes();
+      final item = await ref.read(blogStorageServiceProvider).uploadAudio(
+            authorId: uid,
+            fileName: xFile.name,
+            bytes: bytes,
+            onProgress: (prog, status) {
+              if (mounted) {
+                setState(() {
+                  _uploadProgress = prog;
+                  _uploadStatus = status;
+                });
+              }
+            },
+          );
+
+      if (mounted) {
+        setState(() {
+          _audioItem = item;
+          _coverUrlController.text = item.publicUrl;
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Audio uploaded and ready for preview!')),
+        );
+      }
+    } catch (e) {
+      if (mounted) ErrorHandler.showSnackBar(context, e);
+    } finally {
+      if (mounted) setState(() => _isUploadingMedia = false);
+    }
+  }
+
+  void _reorderGallery(int oldIndex, int newIndex) {
+    setState(() {
+      if (oldIndex < newIndex) newIndex -= 1;
+      final item = _galleryItems.removeAt(oldIndex);
+      _galleryItems.insert(newIndex, item);
+    });
+  }
+
+  void _removeGalleryItem(int index) {
+    setState(() {
+      final removed = _galleryItems.removeAt(index);
+      if (_coverUrlController.text == removed.publicUrl) {
+        _coverUrlController.text =
+            _galleryItems.isNotEmpty ? _galleryItems.first.publicUrl : '';
+      }
+    });
+  }
+
+  void _setAsCover(int index) {
+    setState(() {
+      _coverUrlController.text = _galleryItems[index].publicUrl;
+    });
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Set as post cover image!')),
+    );
   }
 
   Future<void> _handleCreate() async {
@@ -76,10 +212,15 @@ class _BlogCreateScreenState extends ConsumerState<BlogCreateScreen> {
             body: _bodyController.text.trim(),
             type: _selectedType,
             category: _selectedCategory,
-            coverUrl: _mediaUrlController.text.trim().isNotEmpty
-                ? _mediaUrlController.text.trim()
+            coverUrl: _coverUrlController.text.trim().isNotEmpty
+                ? _coverUrlController.text.trim()
                 : null,
             publishNow: _publishNow,
+            galleryMedia: _selectedType == 'image'
+                ? _galleryItems
+                : (_selectedType == 'audio' && _audioItem != null
+                    ? [_audioItem!]
+                    : []),
           );
 
       ref.invalidate(blogFeedProvider);
@@ -90,7 +231,9 @@ class _BlogCreateScreenState extends ConsumerState<BlogCreateScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
-              _publishNow ? 'Post published successfully!' : 'Draft saved to My Drafts.',
+              _publishNow
+                  ? 'Post published successfully!'
+                  : 'Draft saved to My Drafts.',
             ),
           ),
         );
@@ -145,7 +288,7 @@ class _BlogCreateScreenState extends ConsumerState<BlogCreateScreen> {
                       items: const [
                         DropdownMenuItem(
                           value: 'text',
-                          child: Text('Text + Cover'),
+                          child: Text('Text Article'),
                         ),
                         DropdownMenuItem(
                           value: 'image',
@@ -189,7 +332,7 @@ class _BlogCreateScreenState extends ConsumerState<BlogCreateScreen> {
                 controller: _titleController,
                 decoration: const InputDecoration(
                   labelText: 'Title',
-                  hintText: 'Enter a descriptive title...',
+                  hintText: 'Enter title...',
                   prefixIcon: Icon(Icons.title),
                 ),
                 validator: (val) {
@@ -201,97 +344,237 @@ class _BlogCreateScreenState extends ConsumerState<BlogCreateScreen> {
               ),
               const SizedBox(height: 16),
 
-              // Media Upload & URL Section
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Expanded(
-                    child: TextFormField(
-                      controller: _mediaUrlController,
-                      decoration: InputDecoration(
-                        labelText: _selectedType == 'audio'
-                            ? 'Audio URL (mp3/m4a)'
-                            : 'Cover Image URL',
-                        hintText: 'https://...',
-                        prefixIcon: Icon(
-                          _selectedType == 'audio'
-                              ? Icons.audiotrack
-                              : Icons.image,
-                        ),
+              // Upload Progress Bar
+              if (_isUploadingMedia) ...[
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: theme.colorScheme.primaryContainer.withAlpha(50),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text(
+                            _uploadStatus,
+                            style: const TextStyle(fontWeight: FontWeight.bold),
+                          ),
+                          Text('${(_uploadProgress * 100).toInt()}%'),
+                        ],
                       ),
-                      onChanged: (_) => setState(() {}),
+                      const SizedBox(height: 8),
+                      LinearProgressIndicator(value: _uploadProgress),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 16),
+              ],
+
+              // AUDIO SECTION
+              if (_selectedType == 'audio') ...[
+                Row(
+                  children: [
+                    Expanded(
+                      child: TextFormField(
+                        controller: _coverUrlController,
+                        decoration: const InputDecoration(
+                          labelText: 'Audio URL (MP3, M4A, WAV)',
+                          prefixIcon: Icon(Icons.audiotrack),
+                        ),
+                        onChanged: (_) => setState(() {}),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    FilledButton.tonalIcon(
+                      onPressed: _isUploadingMedia ? null : _handlePickAudio,
+                      icon: const Icon(Icons.upload_file),
+                      label: const Text('Upload Audio'),
+                    ),
+                  ],
+                ),
+                if (_coverUrlController.text.trim().isNotEmpty) ...[
+                  const SizedBox(height: 12),
+                  Text(
+                    'Audio Preview (Before Publishing):',
+                    style: theme.textTheme.labelMedium?.copyWith(
+                      fontWeight: FontWeight.bold,
                     ),
                   ),
-                  if (_selectedType != 'audio') ...[
+                  const SizedBox(height: 6),
+                  AudioPlayerWidget(
+                    audioUrl: _coverUrlController.text.trim(),
+                    title: _titleController.text.isEmpty
+                        ? 'Audio Preview'
+                        : _titleController.text,
+                  ),
+                ],
+                const SizedBox(height: 16),
+              ],
+
+              // MULTI-IMAGE GALLERY SECTION
+              if (_selectedType == 'image') ...[
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      'Gallery Images (${_galleryItems.length})',
+                      style: theme.textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    FilledButton.tonalIcon(
+                      onPressed:
+                          _isUploadingMedia ? null : _handlePickGalleryImages,
+                      icon: const Icon(Icons.add_photo_alternate_outlined),
+                      label: const Text('Add Images'),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                if (_galleryItems.isEmpty)
+                  Container(
+                    height: 100,
+                    decoration: BoxDecoration(
+                      border: Border.all(
+                        color: theme.colorScheme.outlineVariant,
+                        style: BorderStyle.solid,
+                      ),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: const Center(
+                      child: Text('No images in gallery yet. Tap "Add Images".'),
+                    ),
+                  )
+                else
+                  ReorderableListView.builder(
+                    shrinkWrap: true,
+                    physics: const NeverScrollableScrollPhysics(),
+                    itemCount: _galleryItems.length,
+                    onReorder: _reorderGallery,
+                    itemBuilder: (context, index) {
+                      final item = _galleryItems[index];
+                      final isCover =
+                          _coverUrlController.text == item.publicUrl;
+                      return ListTile(
+                        key: ValueKey(item.storagePath),
+                        leading: ClipRRect(
+                          borderRadius: BorderRadius.circular(6),
+                          child: CachedNetworkImage(
+                            imageUrl: item.publicUrl,
+                            width: 50,
+                            height: 50,
+                            fit: BoxFit.cover,
+                          ),
+                        ),
+                        title: Row(
+                          children: [
+                            Text('Image #${index + 1}'),
+                            if (isCover) ...[
+                              const SizedBox(width: 8),
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 6,
+                                  vertical: 2,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: theme.colorScheme.primary,
+                                  borderRadius: BorderRadius.circular(4),
+                                ),
+                                child: Text(
+                                  'COVER',
+                                  style: TextStyle(
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.bold,
+                                    color: theme.colorScheme.onPrimary,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ],
+                        ),
+                        subtitle: Text(item.mime),
+                        trailing: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            if (!isCover)
+                              TextButton(
+                                onPressed: () => _setAsCover(index),
+                                child: const Text('Set Cover'),
+                              ),
+                            IconButton(
+                              icon: const Icon(Icons.delete_outline,
+                                  color: Colors.red),
+                              onPressed: () => _removeGalleryItem(index),
+                            ),
+                            const Icon(Icons.drag_handle),
+                          ],
+                        ),
+                      );
+                    },
+                  ),
+                const SizedBox(height: 16),
+              ],
+
+              // TEXT POST COVER IMAGE SECTION
+              if (_selectedType == 'text') ...[
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(
+                      child: TextFormField(
+                        controller: _coverUrlController,
+                        decoration: const InputDecoration(
+                          labelText: 'Cover Image URL (Optional)',
+                          prefixIcon: Icon(Icons.image),
+                        ),
+                        onChanged: (_) => setState(() {}),
+                      ),
+                    ),
                     const SizedBox(width: 8),
                     FilledButton.tonalIcon(
                       onPressed: _isUploadingMedia
                           ? null
-                          : () => _handlePickImage(ImageSource.gallery),
-                      icon: _isUploadingMedia
-                          ? const SizedBox(
-                              width: 16,
-                              height: 16,
-                              child: CircularProgressIndicator(strokeWidth: 2),
-                            )
-                          : const Icon(Icons.file_upload_outlined),
+                          : () => _handlePickCoverImage(ImageSource.gallery),
+                      icon: const Icon(Icons.file_upload_outlined),
                       label: const Text('Upload'),
                     ),
                   ],
-                ],
-              ),
-
-              // Image Preview
-              if (_mediaUrlController.text.trim().isNotEmpty &&
-                  _selectedType != 'audio') ...[
-                const SizedBox(height: 12),
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(10),
-                  child: CachedNetworkImage(
-                    imageUrl: _mediaUrlController.text.trim(),
-                    height: 160,
-                    width: double.infinity,
-                    fit: BoxFit.cover,
-                    placeholder: (context, url) => Container(
+                ),
+                if (_coverUrlController.text.trim().isNotEmpty) ...[
+                  const SizedBox(height: 12),
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(10),
+                    child: CachedNetworkImage(
+                      imageUrl: _coverUrlController.text.trim(),
                       height: 160,
-                      color: theme.colorScheme.surfaceContainerHighest,
-                      child: const Center(child: CircularProgressIndicator()),
-                    ),
-                    errorWidget: (context, url, error) => Container(
-                      height: 80,
-                      color: theme.colorScheme.errorContainer.withAlpha(50),
-                      padding: const EdgeInsets.all(8),
-                      child: const Row(
-                        children: [
-                          Icon(Icons.broken_image, color: Colors.red),
-                          SizedBox(width: 8),
-                          Text('Invalid image preview URL'),
-                        ],
-                      ),
+                      width: double.infinity,
+                      fit: BoxFit.cover,
                     ),
                   ),
-                ),
+                ],
+                const SizedBox(height: 16),
               ],
-              const SizedBox(height: 16),
 
               // Body Content Field
               TextFormField(
                 controller: _bodyController,
                 decoration: const InputDecoration(
                   labelText: 'Body / Article Content',
-                  hintText: 'Write educational content, news, or insights...',
                   alignLabelWithHint: true,
                 ),
                 maxLines: 8,
               ),
               const SizedBox(height: 16),
 
-              // Publish Switch (Guarded by blog.publish permission if non-admin)
+              // Publish Switch
               SwitchListTile(
                 title: const Text('Publish Immediately'),
                 subtitle: Text(
                   !canPublish
-                      ? 'You lack publishing permissions. Saved as draft for admin review.'
+                      ? 'You lack publishing permissions. Saved as draft for review.'
                       : (_publishNow
                           ? 'Visible immediately to all readers'
                           : 'Save as draft (only visible to you)'),

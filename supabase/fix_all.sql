@@ -401,3 +401,70 @@ CREATE POLICY "Delete blog-media requires blog.delete or own folder"
             OR public.has_permission('blog.delete')
         )
     );
+
+
+-- ------------------------------------------------------------------------------
+-- 11. Blog Phase B6: Media Storage, WAV Support & Enhanced Media RLS
+-- ------------------------------------------------------------------------------
+UPDATE storage.buckets
+SET 
+    allowed_mime_types = ARRAY[
+        'image/jpeg', 
+        'image/png', 
+        'image/webp',
+        'audio/mpeg', 
+        'audio/mp4', 
+        'audio/aac', 
+        'audio/ogg', 
+        'audio/x-m4a',
+        'audio/wav',
+        'audio/x-wav'
+    ],
+    file_size_limit = 26214400
+WHERE id = 'blog-media';
+
+CREATE OR REPLACE FUNCTION public.can_access_blog_media(object_name TEXT)
+RETURNS BOOLEAN
+LANGUAGE sql
+SECURITY DEFINER
+SET search_path = ''
+STABLE
+AS $$
+    SELECT (
+        public.has_permission('blog.edit_any')
+        OR (storage.foldername(object_name))[1] = auth.uid()::text
+        OR EXISTS (
+            SELECT 1 FROM public.post_media pm
+            JOIN public.posts p ON pm.post_id = p.id
+            WHERE pm.storage_path = object_name
+              AND p.status = 'published'
+        )
+        OR EXISTS (
+            SELECT 1 FROM public.posts p
+            WHERE (p.cover_url LIKE '%' || object_name OR p.cover_url = object_name)
+              AND p.status = 'published'
+        )
+    );
+$$;
+
+DROP POLICY IF EXISTS "Published or author read blog-media" ON storage.objects;
+CREATE POLICY "Published or author read blog-media"
+    ON storage.objects FOR SELECT
+    TO public
+    USING (
+        bucket_id = 'blog-media'
+        AND public.can_access_blog_media(name)
+    );
+
+DROP POLICY IF EXISTS "Write blog-media requires blog.create" ON storage.objects;
+CREATE POLICY "Write blog-media requires blog.create"
+    ON storage.objects FOR INSERT
+    TO authenticated
+    WITH CHECK (
+        bucket_id = 'blog-media'
+        AND (
+            (storage.foldername(name))[1] = auth.uid()::text
+            OR public.has_permission('blog.edit_any')
+        )
+        AND public.has_permission('blog.create')
+    );

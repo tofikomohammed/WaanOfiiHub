@@ -1,3 +1,5 @@
+import 'post_media.dart';
+
 /// Categories supported by WAAN-OFIIHUB blog system
 class BlogCategories {
   static const String education = 'education';
@@ -60,6 +62,7 @@ class BlogPost {
   final int commentsCount;
   final bool isLikedByMe;
   final DateTime createdAt;
+  final List<PostMedia> media;
 
   const BlogPost({
     required this.id,
@@ -77,16 +80,26 @@ class BlogPost {
     this.commentsCount = 0,
     this.isLikedByMe = false,
     required this.createdAt,
+    this.media = const [],
   });
 
   String get categoryDisplayName => BlogCategories.getDisplayName(category);
 
+  List<PostMedia> get imageMedia =>
+      media.where((m) => m.kind == 'image').toList()
+        ..sort((a, b) => a.sortOrder.compareTo(b.sortOrder));
+
+  List<PostMedia> get audioMedia =>
+      media.where((m) => m.kind == 'audio').toList();
+
   factory BlogPost.fromJson(
     Map<String, dynamic> json, {
     String? currentUserId,
+    String? supabaseUrl,
   }) {
     final likes = json['post_likes'] as List<dynamic>? ?? [];
     final comments = json['post_comments'] as List<dynamic>? ?? [];
+    final rawMedia = json['post_media'] as List<dynamic>? ?? [];
     final authorProfile = json['profiles'] as Map<String, dynamic>?;
 
     final isLiked =
@@ -94,6 +107,14 @@ class BlogPost {
         likes.any(
           (l) => (l as Map<String, dynamic>)['user_id'] == currentUserId,
         );
+
+    final parsedMedia = rawMedia
+        .map((m) => PostMedia.fromJson(
+              m as Map<String, dynamic>,
+              supabaseUrl: supabaseUrl,
+            ))
+        .toList()
+      ..sort((a, b) => a.sortOrder.compareTo(b.sortOrder));
 
     return BlogPost(
       id: json['id'] as String,
@@ -115,6 +136,7 @@ class BlogPost {
       createdAt: json['created_at'] != null
           ? DateTime.parse(json['created_at'] as String)
           : DateTime.now(),
+      media: parsedMedia,
     );
   }
 
@@ -130,6 +152,7 @@ class BlogPost {
     int? likesCount,
     bool? isLikedByMe,
     int? commentsCount,
+    List<PostMedia>? media,
   }) {
     return BlogPost(
       id: id,
@@ -147,6 +170,7 @@ class BlogPost {
       commentsCount: commentsCount ?? this.commentsCount,
       isLikedByMe: isLikedByMe ?? this.isLikedByMe,
       createdAt: createdAt,
+      media: media ?? this.media,
     );
   }
 }

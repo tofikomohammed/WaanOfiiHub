@@ -16,11 +16,13 @@ class AdminScreen extends ConsumerWidget {
     final canViewUsers = perms.contains('users.view');
     final canViewAudit = perms.contains('audit.view');
     final canReviewReports = perms.contains('reports.review');
+    final canManageMedia = perms.contains('blog.edit_any') || canManageRoles;
 
     if (!canManageRoles &&
         !canViewUsers &&
         !canViewAudit &&
-        !canReviewReports) {
+        !canReviewReports &&
+        !canManageMedia) {
       return Scaffold(
         appBar: AppBar(title: const Text('Admin Panel')),
         body: Center(
@@ -148,6 +150,23 @@ class AdminScreen extends ConsumerWidget {
                 ),
                 trailing: const Icon(Icons.arrow_forward_ios_rounded, size: 16),
                 onTap: () => context.push('/admin/audit'),
+              ),
+            ),
+          ],
+          if (canManageMedia) ...[
+            const SizedBox(height: 8),
+            Card(
+              child: ListTile(
+                leading: CircleAvatar(
+                  backgroundColor: theme.colorScheme.tertiaryContainer,
+                  child: const Icon(Icons.perm_media_outlined),
+                ),
+                title: const Text('Media Manager'),
+                subtitle: const Text(
+                  'Inspect storage assets, clean up orphaned files and manage media',
+                ),
+                trailing: const Icon(Icons.arrow_forward_ios_rounded, size: 16),
+                onTap: () => context.push('/admin/media'),
               ),
             ),
           ],

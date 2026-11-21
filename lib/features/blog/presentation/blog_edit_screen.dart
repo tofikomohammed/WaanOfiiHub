@@ -12,6 +12,7 @@ import '../data/blog_repository.dart';
 import '../data/blog_storage_service.dart';
 import '../models/blog_post.dart';
 import 'blog_detail_screen.dart';
+import 'widgets/audio_player_widget.dart';
 
 class BlogEditScreen extends ConsumerStatefulWidget {
   final String postId;
@@ -70,12 +71,12 @@ class _BlogEditScreenState extends ConsumerState<BlogEditScreen> {
 
     setState(() => _isUploadingMedia = true);
     try {
-      final url = await ref
+      final item = await ref
           .read(blogStorageServiceProvider)
           .pickAndUploadCoverImage(authorId: uid, source: source);
-      if (url != null && mounted) {
+      if (item != null && mounted) {
         setState(() {
-          _mediaUrlController.text = url;
+          _mediaUrlController.text = item.publicUrl;
         });
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Image uploaded successfully!')),
@@ -129,7 +130,6 @@ class _BlogEditScreenState extends ConsumerState<BlogEditScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
     final postAsync = ref.watch(postDetailProvider(widget.postId));
     final canPublish = ref.can('blog.publish');
     final canPin = ref.can('blog.edit_any');
@@ -298,25 +298,19 @@ class _BlogEditScreenState extends ConsumerState<BlogEditScreen> {
                         height: 160,
                         width: double.infinity,
                         fit: BoxFit.cover,
-                        placeholder: (context, url) => Container(
-                          height: 160,
-                          color: theme.colorScheme.surfaceContainerHighest,
-                          child:
-                              const Center(child: CircularProgressIndicator()),
-                        ),
-                        errorWidget: (context, url, error) => Container(
-                          height: 80,
-                          color: theme.colorScheme.errorContainer.withAlpha(50),
-                          padding: const EdgeInsets.all(8),
-                          child: const Row(
-                            children: [
-                              Icon(Icons.broken_image, color: Colors.red),
-                              SizedBox(width: 8),
-                              Text('Invalid image preview URL'),
-                            ],
-                          ),
-                        ),
                       ),
+                    ),
+                  ],
+
+                  // Audio Preview
+                  if (_mediaUrlController.text.trim().isNotEmpty &&
+                      _selectedType == 'audio') ...[
+                    const SizedBox(height: 12),
+                    AudioPlayerWidget(
+                      audioUrl: _mediaUrlController.text.trim(),
+                      title: _titleController.text.isEmpty
+                          ? 'Audio Preview'
+                          : _titleController.text,
                     ),
                   ],
                   const SizedBox(height: 16),

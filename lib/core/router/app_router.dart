@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../config/env_config.dart';
+import '../../features/admin/presentation/admin_media_screen.dart';
 import '../../features/admin/presentation/admin_screen.dart';
 import '../../features/admin/presentation/audit_logs_screen.dart';
 import '../../features/admin/presentation/roles_management_screen.dart';
@@ -147,6 +148,10 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/admin/audit',
         builder: (context, state) => const AuditLogsScreen(),
+      ),
+      GoRoute(
+        path: '/admin/media',
+        builder: (context, state) => const AdminMediaScreen(),
       ),
       // Auth routes
       GoRoute(
