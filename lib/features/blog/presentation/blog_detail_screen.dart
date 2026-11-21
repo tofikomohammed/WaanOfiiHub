@@ -7,6 +7,7 @@ import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 
 import '../../../core/errors/error_handler.dart';
+import '../../../core/widgets/empty_state.dart';
 import '../../../core/widgets/error_view.dart';
 import '../../../core/widgets/loading_indicator.dart';
 import '../../chat/data/chat_repository.dart';
@@ -60,9 +61,139 @@ class _BlogDetailScreenState extends ConsumerState<BlogDetailScreen> {
       _commentController.clear();
       ref.invalidate(postCommentsProvider(widget.postId));
       ref.invalidate(postDetailProvider(widget.postId));
-    } catch (_) {}
-    if (mounted) {
-      setState(() => _isSubmitting = false);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Comment posted successfully!')),
+        );
+      }
+    } catch (e) {
+      if (mounted) ErrorHandler.showSnackBar(context, e);
+    } finally {
+      if (mounted) setState(() => _isSubmitting = false);
+    }
+  }
+
+  Future<void> _handleReportPost(String postId) async {
+    String selectedReason = 'Spam or advertising';
+    final detailsCtrl = TextEditingController();
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDialogState) => AlertDialog(
+          title: const Text('Report Article'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text('Why are you reporting this post?'),
+              const SizedBox(height: 12),
+              DropdownButtonFormField<String>(
+                value: selectedReason,
+                items: const [
+                  DropdownMenuItem(
+                    value: 'Spam or advertising',
+                    child: Text('Spam or advertising'),
+                  ),
+                  DropdownMenuItem(
+                    value: 'Misinformation or fake news',
+                    child: Text('Misinformation'),
+                  ),
+                  DropdownMenuItem(
+                    value: 'Harassment or hate speech',
+                    child: Text('Harassment or hate'),
+                  ),
+                  DropdownMenuItem(
+                    value: 'Inappropriate content',
+                    child: Text('Inappropriate content'),
+                  ),
+                  DropdownMenuItem(
+                    value: 'Other',
+                    child: Text('Other reason'),
+                  ),
+                ],
+                onChanged: (val) {
+                  if (val != null) setDialogState(() => selectedReason = val);
+                },
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: detailsCtrl,
+                decoration: const InputDecoration(
+                  labelText: 'Additional Details (Optional)',
+                ),
+                maxLines: 2,
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('Cancel'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(ctx, true),
+              child: const Text('Submit Report'),
+            ),
+          ],
+        ),
+      ),
+    );
+
+    if (confirmed == true && mounted) {
+      try {
+        await ref.read(blogRepositoryProvider).reportPost(
+              postId: postId,
+              reason: selectedReason,
+              details: detailsCtrl.text.trim(),
+            );
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Thank you. Post reported for moderation review.')),
+          );
+        }
+      } catch (e) {
+        if (mounted) ErrorHandler.showSnackBar(context, e);
+      }
+    }
+  }
+
+  Future<void> _handleReportComment(String commentId, String postId) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Report Comment'),
+        content: const Text(
+          'Are you sure you want to flag this comment for moderator review?',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Flag Comment'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true && mounted) {
+      try {
+        await ref.read(blogRepositoryProvider).reportComment(
+              commentId: commentId,
+              postId: postId,
+              reason: 'Inappropriate or offensive comment',
+            );
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Comment reported for moderation review.')),
+          );
+        }
+      } catch (e) {
+        if (mounted) ErrorHandler.showSnackBar(context, e);
+      }
     }
   }
 
@@ -129,8 +260,17 @@ class _BlogDetailScreenState extends ConsumerState<BlogDetailScreen> {
       data: (post) {
         if (post == null) {
           return Scaffold(
-            appBar: AppBar(title: const Text('Post')),
-            body: const Center(child: Text('Post not found')),
+            appBar: AppBar(title: const Text('Post Not Found')),
+            body: EmptyState(
+              icon: Icons.article_outlined,
+              title: 'Article Not Found',
+              subtitle: 'This post may have been removed, archived, or is unpublished.',
+              action: ElevatedButton.icon(
+                onPressed: () => context.pop(),
+                icon: const Icon(Icons.arrow_back),
+                label: const Text('Back to Blog'),
+              ),
+            ),
           );
         }
 
@@ -147,40 +287,73 @@ class _BlogDetailScreenState extends ConsumerState<BlogDetailScreen> {
           appBar: AppBar(
             title: const Text('Post'),
             actions: [
-              if (canEdit || canDeleteThis)
-                PopupMenuButton<String>(
-                  onSelected: (val) {
-                    if (val == 'edit') {
-                      context.push('/blog/edit/${post.id}');
-                    } else if (val == 'delete') {
-                      _handleDeletePost();
-                    }
-                  },
-                  itemBuilder: (ctx) => [
-                    if (canEdit)
-                      const PopupMenuItem(
-                        value: 'edit',
-                        child: Row(
-                          children: [
-                            Icon(Icons.edit_outlined, size: 20),
-                            SizedBox(width: 8),
-                            Text('Edit Post'),
-                          ],
-                        ),
-                      ),
-                    if (canDeleteThis)
-                      const PopupMenuItem(
-                        value: 'delete',
-                        child: Row(
-                          children: [
-                            Icon(Icons.delete_outline, color: Colors.red, size: 20),
-                            SizedBox(width: 8),
-                            Text('Delete Post', style: TextStyle(color: Colors.red)),
-                          ],
-                        ),
-                      ),
-                  ],
+              // Bookmark Button
+              IconButton(
+                icon: Icon(
+                  post.isBookmarkedByMe
+                      ? Icons.bookmark
+                      : Icons.bookmark_border_rounded,
+                  color: post.isBookmarkedByMe
+                      ? theme.colorScheme.primary
+                      : null,
                 ),
+                tooltip: post.isBookmarkedByMe
+                    ? 'Remove Bookmark'
+                    : 'Save Article',
+                onPressed: () async {
+                  await ref
+                      .read(blogRepositoryProvider)
+                      .toggleBookmark(post.id, post.isBookmarkedByMe);
+                  ref.invalidate(postDetailProvider(widget.postId));
+                  ref.invalidate(myBookmarksProvider);
+                },
+              ),
+              PopupMenuButton<String>(
+                onSelected: (val) {
+                  if (val == 'edit') {
+                    context.push('/blog/edit/${post.id}');
+                  } else if (val == 'delete') {
+                    _handleDeletePost();
+                  } else if (val == 'report') {
+                    _handleReportPost(post.id);
+                  }
+                },
+                itemBuilder: (ctx) => [
+                  if (canEdit)
+                    const PopupMenuItem(
+                      value: 'edit',
+                      child: Row(
+                        children: [
+                          Icon(Icons.edit_outlined, size: 20),
+                          SizedBox(width: 8),
+                          Text('Edit Post'),
+                        ],
+                      ),
+                    ),
+                  if (canDeleteThis)
+                    const PopupMenuItem(
+                      value: 'delete',
+                      child: Row(
+                        children: [
+                          Icon(Icons.delete_outline, color: Colors.red, size: 20),
+                          SizedBox(width: 8),
+                          Text('Delete Post', style: TextStyle(color: Colors.red)),
+                        ],
+                      ),
+                    ),
+                  if (!isAuthor)
+                    const PopupMenuItem(
+                      value: 'report',
+                      child: Row(
+                        children: [
+                          Icon(Icons.flag_outlined, color: Colors.orange, size: 20),
+                          SizedBox(width: 8),
+                          Text('Report Post'),
+                        ],
+                      ),
+                    ),
+                ],
+              ),
             ],
           ),
           body: ListView(
@@ -194,6 +367,7 @@ class _BlogDetailScreenState extends ConsumerState<BlogDetailScreen> {
                   borderRadius: BorderRadius.circular(12),
                   child: CachedNetworkImage(
                     imageUrl: post.coverUrl!,
+                    memCacheWidth: 1000,
                     height: 240,
                     width: double.infinity,
                     fit: BoxFit.cover,
@@ -494,6 +668,18 @@ class _BlogDetailScreenState extends ConsumerState<BlogDetailScreen> {
                                     unawaited(context.push('/chat/$convId'));
                                   }
                                 },
+                              ),
+                              IconButton(
+                                icon: const Icon(
+                                  Icons.flag_outlined,
+                                  size: 16,
+                                  color: Colors.orange,
+                                ),
+                                tooltip: 'Report Comment',
+                                onPressed: () => _handleReportComment(
+                                  c.id,
+                                  widget.postId,
+                                ),
                               ),
                             ],
                           ],

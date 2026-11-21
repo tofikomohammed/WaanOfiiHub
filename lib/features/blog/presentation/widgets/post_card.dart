@@ -8,8 +8,14 @@ import '../../models/blog_post.dart';
 class PostCard extends StatelessWidget {
   final BlogPost post;
   final VoidCallback? onLikeToggle;
+  final VoidCallback? onBookmarkToggle;
 
-  const PostCard({super.key, required this.post, this.onLikeToggle});
+  const PostCard({
+    super.key,
+    required this.post,
+    this.onLikeToggle,
+    this.onBookmarkToggle,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -28,6 +34,7 @@ class PostCard extends StatelessWidget {
             if (post.coverUrl != null && post.coverUrl!.isNotEmpty)
               CachedNetworkImage(
                 imageUrl: post.coverUrl!,
+                memCacheWidth: 800,
                 height: 200,
                 width: double.infinity,
                 fit: BoxFit.cover,
@@ -174,6 +181,24 @@ class PostCard extends StatelessWidget {
                         '${post.commentsCount}',
                         style: theme.textTheme.bodySmall,
                       ),
+                      if (onBookmarkToggle != null) ...[
+                        const SizedBox(width: 8),
+                        IconButton(
+                          icon: Icon(
+                            post.isBookmarkedByMe
+                                ? Icons.bookmark
+                                : Icons.bookmark_border_rounded,
+                            size: 20,
+                            color: post.isBookmarkedByMe
+                                ? theme.colorScheme.primary
+                                : null,
+                          ),
+                          onPressed: onBookmarkToggle,
+                          tooltip: post.isBookmarkedByMe
+                              ? 'Remove Bookmark'
+                              : 'Bookmark Post',
+                        ),
+                      ],
                     ],
                   ),
                 ],

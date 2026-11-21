@@ -61,6 +61,7 @@ class BlogPost {
   final int likesCount;
   final int commentsCount;
   final bool isLikedByMe;
+  final bool isBookmarkedByMe;
   final DateTime createdAt;
   final List<PostMedia> media;
   final List<String> tags;
@@ -80,6 +81,7 @@ class BlogPost {
     this.likesCount = 0,
     this.commentsCount = 0,
     this.isLikedByMe = false,
+    this.isBookmarkedByMe = false,
     required this.createdAt,
     this.media = const [],
     this.tags = const [],
@@ -109,6 +111,7 @@ class BlogPost {
   }) {
     final likes = json['post_likes'] as List<dynamic>? ?? [];
     final comments = json['post_comments'] as List<dynamic>? ?? [];
+    final bookmarks = json['post_bookmarks'] as List<dynamic>? ?? [];
     final rawMedia = json['post_media'] as List<dynamic>? ?? [];
     final rawTags = json['tags'] as List<dynamic>? ?? [];
     final authorProfile = json['profiles'] as Map<String, dynamic>?;
@@ -117,6 +120,12 @@ class BlogPost {
         currentUserId != null &&
         likes.any(
           (l) => (l as Map<String, dynamic>)['user_id'] == currentUserId,
+        );
+
+    final isBookmarked =
+        currentUserId != null &&
+        bookmarks.any(
+          (b) => (b as Map<String, dynamic>)['user_id'] == currentUserId,
         );
 
     final parsedMedia = rawMedia
@@ -148,6 +157,7 @@ class BlogPost {
       likesCount: likesTotal,
       commentsCount: commentsTotal,
       isLikedByMe: isLiked,
+      isBookmarkedByMe: isBookmarked,
       createdAt: json['created_at'] != null
           ? DateTime.parse(json['created_at'] as String)
           : DateTime.now(),
@@ -167,6 +177,7 @@ class BlogPost {
     bool? isPinned,
     int? likesCount,
     bool? isLikedByMe,
+    bool? isBookmarkedByMe,
     int? commentsCount,
     List<PostMedia>? media,
     List<String>? tags,
@@ -186,6 +197,7 @@ class BlogPost {
       likesCount: likesCount ?? this.likesCount,
       commentsCount: commentsCount ?? this.commentsCount,
       isLikedByMe: isLikedByMe ?? this.isLikedByMe,
+      isBookmarkedByMe: isBookmarkedByMe ?? this.isBookmarkedByMe,
       createdAt: createdAt,
       media: media ?? this.media,
       tags: tags ?? this.tags,

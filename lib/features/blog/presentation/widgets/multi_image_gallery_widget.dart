@@ -55,6 +55,7 @@ class _MultiImageGalleryWidgetState extends State<MultiImageGalleryWidget> {
                 child: Center(
                   child: CachedNetworkImage(
                     imageUrl: url,
+                    memCacheWidth: 1200,
                     fit: BoxFit.contain,
                     placeholder: (context, url) => const Center(
                       child: CircularProgressIndicator(color: Colors.white),
@@ -88,6 +89,7 @@ class _MultiImageGalleryWidgetState extends State<MultiImageGalleryWidget> {
           borderRadius: BorderRadius.circular(12),
           child: CachedNetworkImage(
             imageUrl: url,
+            memCacheWidth: 800,
             height: 240,
             width: double.infinity,
             fit: BoxFit.cover,
@@ -128,6 +130,7 @@ class _MultiImageGalleryWidgetState extends State<MultiImageGalleryWidget> {
                         borderRadius: BorderRadius.circular(12),
                         child: CachedNetworkImage(
                           imageUrl: url,
+                          memCacheWidth: 800,
                           width: double.infinity,
                           fit: BoxFit.cover,
                           placeholder: (context, url) => Container(
@@ -207,6 +210,7 @@ class _MultiImageGalleryWidgetState extends State<MultiImageGalleryWidget> {
                     borderRadius: BorderRadius.circular(6),
                     child: CachedNetworkImage(
                       imageUrl: url,
+                      memCacheWidth: 200,
                       fit: BoxFit.cover,
                     ),
                   ),

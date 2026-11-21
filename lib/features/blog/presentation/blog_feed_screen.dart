@@ -206,6 +206,11 @@ class _BlogFeedScreenState extends ConsumerState<BlogFeedScreen> {
               });
             },
           ),
+          IconButton(
+            icon: const Icon(Icons.bookmarks_outlined),
+            tooltip: 'Saved Articles',
+            onPressed: () => context.push('/blog/bookmarks'),
+          ),
           if (canCreatePost) ...[
             IconButton(
               icon: const Icon(Icons.drafts_outlined),
@@ -483,6 +488,13 @@ class _BlogFeedScreenState extends ConsumerState<BlogFeedScreen> {
                               .read(blogRepositoryProvider)
                               .toggleLike(post.id, post.isLikedByMe);
                           ref.invalidate(blogFeedProvider);
+                        },
+                        onBookmarkToggle: () async {
+                          await ref
+                              .read(blogRepositoryProvider)
+                              .toggleBookmark(post.id, post.isBookmarkedByMe);
+                          ref.invalidate(blogFeedProvider);
+                          ref.invalidate(myBookmarksProvider);
                         },
                       );
                     },

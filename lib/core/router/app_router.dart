@@ -16,6 +16,7 @@ import '../../features/blog/presentation/blog_detail_screen.dart';
 import '../../features/blog/presentation/blog_edit_screen.dart';
 import '../../features/blog/presentation/blog_feed_screen.dart';
 import '../../features/blog/presentation/category_tag_posts_screen.dart';
+import '../../features/blog/presentation/my_bookmarks_screen.dart';
 import '../../features/blog/presentation/my_drafts_screen.dart';
 import '../../features/chat/presentation/chat_conversation_screen.dart';
 import '../../features/chat/presentation/chat_list_screen.dart';
@@ -101,6 +102,10 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/blog/drafts',
         builder: (context, state) => const MyDraftsScreen(),
+      ),
+      GoRoute(
+        path: '/blog/bookmarks',
+        builder: (context, state) => const MyBookmarksScreen(),
       ),
       GoRoute(
         path: '/blog/edit/:id',

@@ -8,6 +8,7 @@ import '../models/blog_post.dart';
 import '../models/blog_tag.dart';
 import '../models/post_comment.dart';
 import '../models/post_media.dart';
+import '../utils/content_sanitizer.dart';
 import 'blog_storage_service.dart';
 
 class BlogRepository {
@@ -35,7 +36,7 @@ class BlogRepository {
     var query = _client
         .from('posts')
         .select(
-          '*, profiles:author_id(display_name, avatar_url), post_likes(user_id), post_comments(id), post_media(*)',
+          '*, profiles:author_id(display_name, avatar_url), post_likes(user_id), post_bookmarks(user_id), post_media(*)',
         )
         .eq('status', 'published');
 
@@ -110,7 +111,7 @@ class BlogRepository {
     final res = await _client
         .from('posts')
         .select(
-          '*, profiles:author_id(display_name, avatar_url), post_likes(user_id), post_comments(id), post_media(*)',
+          '*, profiles:author_id(display_name, avatar_url), post_likes(user_id), post_bookmarks(user_id), post_media(*)',
         )
         .eq('author_id', uid)
         .eq('status', 'draft')
@@ -133,7 +134,7 @@ class BlogRepository {
     final res = await _client
         .from('posts')
         .select(
-          '*, profiles:author_id(display_name, avatar_url), post_likes(user_id), post_comments(id), post_media(*)',
+          '*, profiles:author_id(display_name, avatar_url), post_likes(user_id), post_bookmarks(user_id), post_media(*)',
         )
         .eq('id', id)
         .maybeSingle();
@@ -165,6 +166,89 @@ class BlogRepository {
     }
   }
 
+  /// Toggle bookmark on post
+  Future<void> toggleBookmark(String postId, bool isBookmarked) async {
+    if (_client == null) return;
+    final uid = currentUserId;
+    if (uid == null) return;
+
+    if (isBookmarked) {
+      await _client.from('post_bookmarks').delete().match({
+        'post_id': postId,
+        'user_id': uid,
+      });
+    } else {
+      await _client.from('post_bookmarks').insert({
+        'post_id': postId,
+        'user_id': uid,
+      });
+    }
+  }
+
+  /// Get bookmarked posts for the current user
+  Future<List<BlogPost>> getBookmarkedPosts() async {
+    if (_client == null) return [];
+    final uid = currentUserId;
+    if (uid == null) return [];
+
+    final res = await _client
+        .from('post_bookmarks')
+        .select(
+          'posts(*, profiles:posts.author_id(display_name, avatar_url), post_likes(user_id), post_bookmarks(user_id), post_media(*))',
+        )
+        .eq('user_id', uid)
+        .order('created_at', ascending: false);
+
+    return (res as List)
+        .where((e) => e['posts'] != null)
+        .map((e) => BlogPost.fromJson(
+              e['posts'] as Map<String, dynamic>,
+              currentUserId: uid,
+              supabaseUrl: supabaseUrl,
+            ))
+        .toList();
+  }
+
+  /// Report a post for moderation
+  Future<void> reportPost({
+    required String postId,
+    required String reason,
+    String? details,
+  }) async {
+    if (_client == null) return;
+    final uid = currentUserId;
+    if (uid == null) return;
+
+    await _client.from('reports').insert({
+      'reporter_id': uid,
+      'post_id': postId,
+      'reason': reason.trim(),
+      'details': details != null ? ContentSanitizer.sanitizeComment(details) : null,
+      'status': 'open',
+    });
+  }
+
+  /// Report a comment for moderation
+  Future<void> reportComment({
+    required String commentId,
+    required String postId,
+    required String reason,
+    String? details,
+  }) async {
+    if (_client == null) return;
+    final uid = currentUserId;
+    if (uid == null) return;
+
+    await _client.from('reports').insert({
+      'reporter_id': uid,
+      'post_id': postId,
+      'comment_id': commentId,
+      'reason': reason.trim(),
+      'details': details != null ? ContentSanitizer.sanitizeComment(details) : null,
+      'status': 'open',
+    });
+  }
+
   /// Fetch comments for a post
   Future<List<PostComment>> getComments(String postId) async {
     if (_client == null) return [];
@@ -178,20 +262,23 @@ class BlogRepository {
     return (res as List).map((e) => PostComment.fromJson(e)).toList();
   }
 
-  /// Add comment to post
+  /// Add comment to post with input sanitization
   Future<void> addComment(String postId, String body) async {
     if (_client == null) return;
     final uid = currentUserId;
     if (uid == null) return;
 
+    final sanitized = ContentSanitizer.sanitizeComment(body);
+    if (sanitized.isEmpty) return;
+
     await _client.from('post_comments').insert({
       'post_id': postId,
       'user_id': uid,
-      'body': body.trim(),
+      'body': sanitized,
     });
   }
 
-  /// Create a new post with optional gallery media items
+  /// Create a new post with optional gallery media items and content sanitization
   Future<String?> createPost({
     required String title,
     required String body,
@@ -206,15 +293,14 @@ class BlogRepository {
     final uid = currentUserId;
     if (uid == null) return null;
 
-    final cleanedTags = tags
-        .map((t) => t.trim().toLowerCase())
-        .where((t) => t.isNotEmpty)
-        .toList();
+    final sanitizedTitle = ContentSanitizer.sanitizeTitle(title);
+    final sanitizedBody = ContentSanitizer.sanitizeBody(body);
+    final cleanedTags = ContentSanitizer.sanitizeTags(tags);
 
     final res = await _client.from('posts').insert({
       'author_id': uid,
-      'title': title.trim(),
-      'body': body.trim(),
+      'title': sanitizedTitle,
+      'body': sanitizedBody,
       'type': type,
       'category': category,
       'tags': cleanedTags,
@@ -247,7 +333,7 @@ class BlogRepository {
     return newPostId;
   }
 
-  /// Update an existing post with optional added/reordered gallery media
+  /// Update an existing post with content sanitization
   Future<void> updatePost({
     required String id,
     required String title,
@@ -263,8 +349,8 @@ class BlogRepository {
     if (_client == null) return;
 
     final updates = <String, dynamic>{
-      'title': title.trim(),
-      'body': body.trim(),
+      'title': ContentSanitizer.sanitizeTitle(title),
+      'body': ContentSanitizer.sanitizeBody(body),
       'type': type,
       'category': category,
       'cover_url': coverUrl,
@@ -272,10 +358,7 @@ class BlogRepository {
     };
 
     if (tags != null) {
-      updates['tags'] = tags
-          .map((t) => t.trim().toLowerCase())
-          .where((t) => t.isNotEmpty)
-          .toList();
+      updates['tags'] = ContentSanitizer.sanitizeTags(tags);
     }
 
     if (isPinned != null) updates['is_pinned'] = isPinned;
@@ -624,4 +707,10 @@ final blogFeedProvider = FutureProvider<List<BlogPost>>((ref) async {
 final myDraftsProvider = FutureProvider<List<BlogPost>>((ref) async {
   final repo = ref.watch(blogRepositoryProvider);
   return repo.getMyDrafts();
+});
+
+/// Bookmarks provider
+final myBookmarksProvider = FutureProvider<List<BlogPost>>((ref) async {
+  final repo = ref.watch(blogRepositoryProvider);
+  return repo.getBookmarkedPosts();
 });
