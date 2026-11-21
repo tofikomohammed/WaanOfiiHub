@@ -1,9 +1,55 @@
+/// Categories supported by WAAN-OFIIHUB blog system
+class BlogCategories {
+  static const String education = 'education';
+  static const String technology = 'technology';
+  static const String health = 'health';
+  static const String community = 'community';
+  static const String agriculture = 'agriculture';
+  static const String business = 'business';
+  static const String ethics = 'ethics';
+  static const String news = 'news';
+
+  static const List<String> all = [
+    education,
+    technology,
+    health,
+    community,
+    agriculture,
+    business,
+    ethics,
+    news,
+  ];
+
+  static String getDisplayName(String key) {
+    switch (key) {
+      case education:
+        return 'Education';
+      case technology:
+        return 'Technology & Innovation';
+      case health:
+        return 'Health & Wellness';
+      case community:
+        return 'Community Development';
+      case agriculture:
+        return 'Agriculture';
+      case business:
+        return 'Business & Entrepreneurship';
+      case ethics:
+        return 'Ethics & Good Deeds';
+      case news:
+      default:
+        return 'News & Updates';
+    }
+  }
+}
+
 /// Immutable representation of a blog post
 class BlogPost {
   final String id;
   final String authorId;
   final String? authorName;
   final String type; // 'text', 'image', 'audio'
+  final String category; // 'education', 'technology', 'health', 'community', 'agriculture', 'business', 'ethics', 'news'
   final String title;
   final String body;
   final String? coverUrl;
@@ -20,6 +66,7 @@ class BlogPost {
     required this.authorId,
     this.authorName,
     required this.type,
+    this.category = BlogCategories.news,
     required this.title,
     this.body = '',
     this.coverUrl,
@@ -31,6 +78,8 @@ class BlogPost {
     this.isLikedByMe = false,
     required this.createdAt,
   });
+
+  String get categoryDisplayName => BlogCategories.getDisplayName(category);
 
   factory BlogPost.fromJson(
     Map<String, dynamic> json, {
@@ -51,6 +100,7 @@ class BlogPost {
       authorId: json['author_id'] as String,
       authorName: authorProfile?['display_name'] as String? ?? 'Admin',
       type: json['type'] as String? ?? 'text',
+      category: json['category'] as String? ?? BlogCategories.news,
       title: json['title'] as String? ?? '',
       body: json['body'] as String? ?? '',
       coverUrl: json['cover_url'] as String?,
@@ -68,18 +118,31 @@ class BlogPost {
     );
   }
 
-  BlogPost copyWith({int? likesCount, bool? isLikedByMe, int? commentsCount}) {
+  BlogPost copyWith({
+    String? title,
+    String? body,
+    String? type,
+    String? category,
+    String? coverUrl,
+    String? status,
+    DateTime? publishedAt,
+    bool? isPinned,
+    int? likesCount,
+    bool? isLikedByMe,
+    int? commentsCount,
+  }) {
     return BlogPost(
       id: id,
       authorId: authorId,
       authorName: authorName,
-      type: type,
-      title: title,
-      body: body,
-      coverUrl: coverUrl,
-      status: status,
-      publishedAt: publishedAt,
-      isPinned: isPinned,
+      type: type ?? this.type,
+      category: category ?? this.category,
+      title: title ?? this.title,
+      body: body ?? this.body,
+      coverUrl: coverUrl ?? this.coverUrl,
+      status: status ?? this.status,
+      publishedAt: publishedAt ?? this.publishedAt,
+      isPinned: isPinned ?? this.isPinned,
       likesCount: likesCount ?? this.likesCount,
       commentsCount: commentsCount ?? this.commentsCount,
       isLikedByMe: isLikedByMe ?? this.isLikedByMe,

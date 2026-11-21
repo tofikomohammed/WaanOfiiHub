@@ -6,9 +6,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 
+import '../../../core/errors/error_handler.dart';
 import '../../../core/widgets/error_view.dart';
 import '../../../core/widgets/loading_indicator.dart';
 import '../../chat/data/chat_repository.dart';
+import '../../rbac/data/rbac_repository.dart';
 import '../data/blog_repository.dart';
 import '../models/blog_post.dart';
 import '../models/post_comment.dart';
@@ -63,31 +65,124 @@ class _BlogDetailScreenState extends ConsumerState<BlogDetailScreen> {
     }
   }
 
+  Future<void> _handleDeletePost() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Delete Post'),
+        content: const Text(
+          'Are you sure you want to permanently delete this post?',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(backgroundColor: Colors.red),
+            onPressed: () => Navigator.of(ctx).pop(true),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true && mounted) {
+      try {
+        await ref.read(blogRepositoryProvider).deletePost(widget.postId);
+        ref.invalidate(blogFeedProvider);
+        ref.invalidate(myDraftsProvider);
+        if (mounted) {
+          context.pop();
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Post deleted successfully.')),
+          );
+        }
+      } catch (e) {
+        if (mounted) ErrorHandler.showSnackBar(context, e);
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final postAsync = ref.watch(postDetailProvider(widget.postId));
     final commentsAsync = ref.watch(postCommentsProvider(widget.postId));
     final currentUserId = ref.watch(chatRepositoryProvider).currentUserId;
+    final canEditAny = ref.can('blog.edit_any');
+    final canDelete = ref.can('blog.delete');
     final theme = Theme.of(context);
 
-    return Scaffold(
-      appBar: AppBar(title: const Text('Post')),
-      body: postAsync.when(
-        loading: () => const LoadingIndicator(message: 'Loading post...'),
-        error: (err, stack) => ErrorView(
+    return postAsync.when(
+      loading: () => Scaffold(
+        appBar: AppBar(title: const Text('Post')),
+        body: const LoadingIndicator(message: 'Loading post...'),
+      ),
+      error: (err, stack) => Scaffold(
+        appBar: AppBar(title: const Text('Post')),
+        body: ErrorView(
           message: 'Unable to load post details',
           onRetry: () => ref.invalidate(postDetailProvider(widget.postId)),
         ),
-        data: (post) {
-          if (post == null) {
-            return const Center(child: Text('Post not found'));
-          }
+      ),
+      data: (post) {
+        if (post == null) {
+          return Scaffold(
+            appBar: AppBar(title: const Text('Post')),
+            body: const Center(child: Text('Post not found')),
+          );
+        }
 
-          final dateStr = post.publishedAt != null
-              ? DateFormat.yMMMd().format(post.publishedAt!)
-              : 'Draft';
+        final isAuthor = post.authorId == currentUserId;
+        final canEdit = (isAuthor && ref.can('blog.edit_own')) || canEditAny;
+        final canDeleteThis =
+            (isAuthor && post.status == 'draft') || canDelete;
 
-          return ListView(
+        final dateStr = post.publishedAt != null
+            ? DateFormat.yMMMd().format(post.publishedAt!)
+            : 'Draft';
+
+        return Scaffold(
+          appBar: AppBar(
+            title: const Text('Post'),
+            actions: [
+              if (canEdit || canDeleteThis)
+                PopupMenuButton<String>(
+                  onSelected: (val) {
+                    if (val == 'edit') {
+                      context.push('/blog/edit/${post.id}');
+                    } else if (val == 'delete') {
+                      _handleDeletePost();
+                    }
+                  },
+                  itemBuilder: (ctx) => [
+                    if (canEdit)
+                      const PopupMenuItem(
+                        value: 'edit',
+                        child: Row(
+                          children: [
+                            Icon(Icons.edit_outlined, size: 20),
+                            SizedBox(width: 8),
+                            Text('Edit Post'),
+                          ],
+                        ),
+                      ),
+                    if (canDeleteThis)
+                      const PopupMenuItem(
+                        value: 'delete',
+                        child: Row(
+                          children: [
+                            Icon(Icons.delete_outline, color: Colors.red, size: 20),
+                            SizedBox(width: 8),
+                            Text('Delete Post', style: TextStyle(color: Colors.red)),
+                          ],
+                        ),
+                      ),
+                  ],
+                ),
+            ],
+          ),
+          body: ListView(
             padding: const EdgeInsets.all(16.0),
             children: [
               if (post.coverUrl != null && post.coverUrl!.isNotEmpty)
@@ -101,6 +196,72 @@ class _BlogDetailScreenState extends ConsumerState<BlogDetailScreen> {
                   ),
                 ),
               const SizedBox(height: 16),
+
+              // Category Badge
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 4,
+                    ),
+                    decoration: BoxDecoration(
+                      color: theme.colorScheme.primaryContainer,
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                    child: Text(
+                      post.type.toUpperCase(),
+                      style: TextStyle(
+                        fontSize: 10,
+                        fontWeight: FontWeight.bold,
+                        color: theme.colorScheme.primary,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 4,
+                    ),
+                    decoration: BoxDecoration(
+                      color: theme.colorScheme.secondaryContainer,
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                    child: Text(
+                      post.categoryDisplayName.toUpperCase(),
+                      style: TextStyle(
+                        fontSize: 10,
+                        fontWeight: FontWeight.bold,
+                        color: theme.colorScheme.onSecondaryContainer,
+                      ),
+                    ),
+                  ),
+                  if (post.status == 'draft') ...[
+                    const SizedBox(width: 8),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 4,
+                      ),
+                      decoration: BoxDecoration(
+                        color: Colors.amber.withAlpha(50),
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      child: const Text(
+                        'DRAFT',
+                        style: TextStyle(
+                          fontSize: 10,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.amber,
+                        ),
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+              const SizedBox(height: 12),
+
               Text(post.title, style: theme.textTheme.headlineMedium),
               const SizedBox(height: 8),
               Row(
@@ -264,9 +425,9 @@ class _BlogDetailScreenState extends ConsumerState<BlogDetailScreen> {
                 },
               ),
             ],
-          );
-        },
-      ),
+          ),
+        );
+      },
     );
   }
 }

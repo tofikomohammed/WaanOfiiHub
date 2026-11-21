@@ -324,3 +324,80 @@ FROM auth.users u
 CROSS JOIN public.roles r
 WHERE r.key = 'superadmin'
 ON CONFLICT (user_id, role_id) DO NOTHING;
+
+
+-- ------------------------------------------------------------------------------
+-- 10. Blog Phase 1: Categories, Search, Hardened RLS & Storage Policies
+-- ------------------------------------------------------------------------------
+ALTER TABLE public.posts 
+    ADD COLUMN IF NOT EXISTS category TEXT NOT NULL DEFAULT 'news'
+    CHECK (category IN (
+        'education',
+        'technology',
+        'health',
+        'community',
+        'agriculture',
+        'business',
+        'ethics',
+        'news'
+    ));
+
+CREATE INDEX IF NOT EXISTS idx_posts_category_published 
+    ON public.posts(category, published_at DESC) 
+    WHERE status = 'published';
+
+CREATE INDEX IF NOT EXISTS idx_posts_search_gin 
+    ON public.posts USING gin(to_tsvector('english', title || ' ' || body));
+
+DROP POLICY IF EXISTS "Published posts are readable by all authenticated" ON public.posts;
+CREATE POLICY "Published posts are readable by all authenticated"
+    ON public.posts FOR SELECT TO authenticated
+    USING (
+        status = 'published'
+        OR author_id = auth.uid()
+        OR public.has_permission('blog.edit_any')
+    );
+
+DROP POLICY IF EXISTS "Create post requires blog.create" ON public.posts;
+CREATE POLICY "Create post requires blog.create"
+    ON public.posts FOR INSERT TO authenticated
+    WITH CHECK (
+        author_id = auth.uid()
+        AND public.has_permission('blog.create')
+    );
+
+DROP POLICY IF EXISTS "Edit post requires permissions" ON public.posts;
+CREATE POLICY "Edit post requires permissions"
+    ON public.posts FOR UPDATE TO authenticated
+    USING (
+        (author_id = auth.uid() AND public.has_permission('blog.edit_own'))
+        OR public.has_permission('blog.edit_any')
+    )
+    WITH CHECK (
+        (
+            (author_id = auth.uid() AND public.has_permission('blog.edit_own'))
+            AND (status != 'published' OR public.has_permission('blog.publish'))
+        )
+        OR public.has_permission('blog.edit_any')
+    );
+
+DROP POLICY IF EXISTS "Delete post requires blog.delete" ON public.posts;
+DROP POLICY IF EXISTS "Delete post requires blog.delete or own draft" ON public.posts;
+CREATE POLICY "Delete post requires blog.delete or own draft"
+    ON public.posts FOR DELETE TO authenticated
+    USING (
+        (author_id = auth.uid() AND status = 'draft')
+        OR public.has_permission('blog.delete')
+    );
+
+DROP POLICY IF EXISTS "Delete blog-media requires blog.delete" ON storage.objects;
+DROP POLICY IF EXISTS "Delete blog-media requires blog.delete or own folder" ON storage.objects;
+CREATE POLICY "Delete blog-media requires blog.delete or own folder"
+    ON storage.objects FOR DELETE TO authenticated
+    USING (
+        bucket_id = 'blog-media'
+        AND (
+            (storage.foldername(name))[1] = auth.uid()::text
+            OR public.has_permission('blog.delete')
+        )
+    );

@@ -67,6 +67,25 @@ class PostCard extends StatelessWidget {
                           ),
                         ),
                       ),
+                      const SizedBox(width: 8),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 4,
+                        ),
+                        decoration: BoxDecoration(
+                          color: theme.colorScheme.secondaryContainer.withAlpha(150),
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: Text(
+                          post.categoryDisplayName.toUpperCase(),
+                          style: TextStyle(
+                            fontSize: 10,
+                            fontWeight: FontWeight.w600,
+                            color: theme.colorScheme.onSecondaryContainer,
+                          ),
+                        ),
+                      ),
                       if (post.isPinned) ...[
                         const SizedBox(width: 8),
                         const Icon(

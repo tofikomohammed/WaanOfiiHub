@@ -11,7 +11,9 @@ import '../../features/auth/presentation/login_screen.dart';
 import '../../features/auth/presentation/register_screen.dart';
 import '../../features/blog/presentation/blog_create_screen.dart';
 import '../../features/blog/presentation/blog_detail_screen.dart';
+import '../../features/blog/presentation/blog_edit_screen.dart';
 import '../../features/blog/presentation/blog_feed_screen.dart';
+import '../../features/blog/presentation/my_drafts_screen.dart';
 import '../../features/chat/presentation/chat_conversation_screen.dart';
 import '../../features/chat/presentation/chat_list_screen.dart';
 import '../../features/chat/presentation/create_group_screen.dart';
@@ -92,6 +94,17 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/blog/create',
         builder: (context, state) => const BlogCreateScreen(),
+      ),
+      GoRoute(
+        path: '/blog/drafts',
+        builder: (context, state) => const MyDraftsScreen(),
+      ),
+      GoRoute(
+        path: '/blog/edit/:id',
+        builder: (context, state) {
+          final id = state.pathParameters['id'] ?? '';
+          return BlogEditScreen(postId: id);
+        },
       ),
       GoRoute(
         path: '/blog/:id',

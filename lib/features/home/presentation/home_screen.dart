@@ -320,6 +320,14 @@ class HomeScreen extends ConsumerWidget {
                       onTap: () => context.push('/blog/create'),
                     ),
                     const SizedBox(width: 8),
+                    _buildActionChip(
+                      context,
+                      icon: Icons.drafts_outlined,
+                      label: 'My Drafts',
+                      color: Colors.deepOrange,
+                      onTap: () => context.push('/blog/drafts'),
+                    ),
+                    const SizedBox(width: 8),
                   ],
                   _buildActionChip(
                     context,
