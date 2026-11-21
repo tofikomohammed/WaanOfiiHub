@@ -28,6 +28,7 @@ class _BlogEditScreenState extends ConsumerState<BlogEditScreen> {
   late final TextEditingController _titleController;
   late final TextEditingController _bodyController;
   late final TextEditingController _mediaUrlController;
+  late final TextEditingController _tagsController;
 
   String _selectedType = 'text';
   String _selectedCategory = BlogCategories.news;
@@ -43,6 +44,7 @@ class _BlogEditScreenState extends ConsumerState<BlogEditScreen> {
     _titleController = TextEditingController();
     _bodyController = TextEditingController();
     _mediaUrlController = TextEditingController();
+    _tagsController = TextEditingController();
   }
 
   @override
@@ -50,6 +52,7 @@ class _BlogEditScreenState extends ConsumerState<BlogEditScreen> {
     _titleController.dispose();
     _bodyController.dispose();
     _mediaUrlController.dispose();
+    _tagsController.dispose();
     super.dispose();
   }
 
@@ -58,6 +61,7 @@ class _BlogEditScreenState extends ConsumerState<BlogEditScreen> {
     _titleController.text = post.title;
     _bodyController.text = post.body;
     _mediaUrlController.text = post.coverUrl ?? '';
+    _tagsController.text = post.tags.join(', ');
     _selectedType = post.type;
     _selectedCategory = post.category;
     _selectedStatus = post.status;
@@ -94,12 +98,19 @@ class _BlogEditScreenState extends ConsumerState<BlogEditScreen> {
 
     setState(() => _isLoading = true);
     try {
+      final tags = _tagsController.text
+          .split(RegExp(r'[, ]+'))
+          .map((t) => t.replaceAll('#', '').trim())
+          .where((t) => t.isNotEmpty)
+          .toList();
+
       await ref.read(blogRepositoryProvider).updatePost(
             id: widget.postId,
             title: _titleController.text.trim(),
             body: _bodyController.text.trim(),
             type: _selectedType,
             category: _selectedCategory,
+            tags: tags,
             coverUrl: _mediaUrlController.text.trim().isNotEmpty
                 ? _mediaUrlController.text.trim()
                 : null,
@@ -313,6 +324,17 @@ class _BlogEditScreenState extends ConsumerState<BlogEditScreen> {
                           : _titleController.text,
                     ),
                   ],
+                  const SizedBox(height: 16),
+
+                  // Tags Field
+                  TextFormField(
+                    controller: _tagsController,
+                    decoration: const InputDecoration(
+                      labelText: 'Tags (e.g. innovation, health, tips)',
+                      prefixIcon: Icon(Icons.tag),
+                      hintText: 'Comma-separated tags',
+                    ),
+                  ),
                   const SizedBox(height: 16),
 
                   // Body Content Field

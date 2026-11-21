@@ -23,6 +23,7 @@ class _BlogCreateScreenState extends ConsumerState<BlogCreateScreen> {
   final _titleController = TextEditingController();
   final _bodyController = TextEditingController();
   final _coverUrlController = TextEditingController();
+  final _tagsController = TextEditingController();
 
   String _selectedType = 'text';
   String _selectedCategory = BlogCategories.news;
@@ -41,6 +42,7 @@ class _BlogCreateScreenState extends ConsumerState<BlogCreateScreen> {
     _titleController.dispose();
     _bodyController.dispose();
     _coverUrlController.dispose();
+    _tagsController.dispose();
     super.dispose();
   }
 
@@ -207,6 +209,12 @@ class _BlogCreateScreenState extends ConsumerState<BlogCreateScreen> {
 
     setState(() => _isLoading = true);
     try {
+      final tags = _tagsController.text
+          .split(RegExp(r'[, ]+'))
+          .map((t) => t.replaceAll('#', '').trim())
+          .where((t) => t.isNotEmpty)
+          .toList();
+
       await ref.read(blogRepositoryProvider).createPost(
             title: _titleController.text.trim(),
             body: _bodyController.text.trim(),
@@ -216,6 +224,7 @@ class _BlogCreateScreenState extends ConsumerState<BlogCreateScreen> {
                 ? _coverUrlController.text.trim()
                 : null,
             publishNow: _publishNow,
+            tags: tags,
             galleryMedia: _selectedType == 'image'
                 ? _galleryItems
                 : (_selectedType == 'audio' && _audioItem != null
@@ -557,6 +566,17 @@ class _BlogCreateScreenState extends ConsumerState<BlogCreateScreen> {
                 ],
                 const SizedBox(height: 16),
               ],
+
+              // Tags Field
+              TextFormField(
+                controller: _tagsController,
+                decoration: const InputDecoration(
+                  labelText: 'Tags (e.g. innovation, health, updates)',
+                  prefixIcon: Icon(Icons.tag),
+                  hintText: 'Comma-separated tags',
+                ),
+              ),
+              const SizedBox(height: 16),
 
               // Body Content Field
               TextFormField(

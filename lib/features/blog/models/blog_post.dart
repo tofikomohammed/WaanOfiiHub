@@ -63,6 +63,7 @@ class BlogPost {
   final bool isLikedByMe;
   final DateTime createdAt;
   final List<PostMedia> media;
+  final List<String> tags;
 
   const BlogPost({
     required this.id,
@@ -81,9 +82,18 @@ class BlogPost {
     this.isLikedByMe = false,
     required this.createdAt,
     this.media = const [],
+    this.tags = const [],
   });
 
   String get categoryDisplayName => BlogCategories.getDisplayName(category);
+
+  /// Estimated reading time in minutes (approx. 200 words per minute)
+  int get readingTimeMinutes {
+    final words = body.trim().isEmpty
+        ? 0
+        : body.trim().split(RegExp(r'\s+')).where((w) => w.isNotEmpty).length;
+    return (words / 200).ceil().clamp(1, 120);
+  }
 
   List<PostMedia> get imageMedia =>
       media.where((m) => m.kind == 'image').toList()
@@ -100,6 +110,7 @@ class BlogPost {
     final likes = json['post_likes'] as List<dynamic>? ?? [];
     final comments = json['post_comments'] as List<dynamic>? ?? [];
     final rawMedia = json['post_media'] as List<dynamic>? ?? [];
+    final rawTags = json['tags'] as List<dynamic>? ?? [];
     final authorProfile = json['profiles'] as Map<String, dynamic>?;
 
     final isLiked =
@@ -116,6 +127,10 @@ class BlogPost {
         .toList()
       ..sort((a, b) => a.sortOrder.compareTo(b.sortOrder));
 
+    final parsedTags = rawTags.map((t) => t.toString()).toList();
+    final likesTotal = json['likes_count'] as int? ?? likes.length;
+    final commentsTotal = json['comments_count'] as int? ?? comments.length;
+
     return BlogPost(
       id: json['id'] as String,
       authorId: json['author_id'] as String,
@@ -130,13 +145,14 @@ class BlogPost {
           ? DateTime.tryParse(json['published_at'] as String)
           : null,
       isPinned: json['is_pinned'] as bool? ?? false,
-      likesCount: likes.length,
-      commentsCount: comments.length,
+      likesCount: likesTotal,
+      commentsCount: commentsTotal,
       isLikedByMe: isLiked,
       createdAt: json['created_at'] != null
           ? DateTime.parse(json['created_at'] as String)
           : DateTime.now(),
       media: parsedMedia,
+      tags: parsedTags,
     );
   }
 
@@ -153,6 +169,7 @@ class BlogPost {
     bool? isLikedByMe,
     int? commentsCount,
     List<PostMedia>? media,
+    List<String>? tags,
   }) {
     return BlogPost(
       id: id,
@@ -171,6 +188,7 @@ class BlogPost {
       isLikedByMe: isLikedByMe ?? this.isLikedByMe,
       createdAt: createdAt,
       media: media ?? this.media,
+      tags: tags ?? this.tags,
     );
   }
 }

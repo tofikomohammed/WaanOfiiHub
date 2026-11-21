@@ -3,7 +3,9 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../core/config/env_config.dart';
 import '../../../core/config/supabase_config.dart';
+import '../models/blog_category.dart';
 import '../models/blog_post.dart';
+import '../models/blog_tag.dart';
 import '../models/post_comment.dart';
 import '../models/post_media.dart';
 import 'blog_storage_service.dart';
@@ -16,10 +18,14 @@ class BlogRepository {
   String? get currentUserId => _client?.auth.currentUser?.id;
   String get supabaseUrl => EnvConfig.supabaseUrl;
 
-  /// Fetch published posts with optional category and search filtering
+  /// Fetch published posts with optional category, type, tag, date and search filtering
   Future<List<BlogPost>> getPublishedPosts({
     String? category,
     String? searchQuery,
+    String? postType,
+    String? tag,
+    DateTime? dateFrom,
+    String sortBy = 'latest',
     int limit = 20,
     int offset = 0,
   }) async {
@@ -37,15 +43,54 @@ class BlogRepository {
       query = query.eq('category', category);
     }
 
-    if (searchQuery != null && searchQuery.trim().isNotEmpty) {
-      final term = searchQuery.trim();
-      query = query.or('title.ilike.%$term%,body.ilike.%$term%');
+    if (postType != null && postType.isNotEmpty && postType != 'all') {
+      query = query.eq('type', postType);
     }
 
-    final res = await query
-        .order('is_pinned', ascending: false)
-        .order('published_at', ascending: false)
-        .range(offset, offset + limit - 1);
+    if (tag != null && tag.isNotEmpty && tag != 'all') {
+      query = query.contains('tags', [tag.toLowerCase()]);
+    }
+
+    if (dateFrom != null) {
+      query = query.gte('published_at', dateFrom.toIso8601String());
+    }
+
+    if (searchQuery != null && searchQuery.trim().isNotEmpty) {
+      final term = searchQuery.trim();
+      List<String> authorIds = [];
+      try {
+        final authorRows = await _client
+            .from('profiles')
+            .select('id')
+            .ilike('display_name', '%$term%');
+        authorIds = (authorRows as List)
+            .map((a) => a['id'] as String)
+            .toList();
+      } catch (_) {}
+
+      if (authorIds.isNotEmpty) {
+        final idsList = authorIds.join(',');
+        query = query.or('title.ilike.%$term%,body.ilike.%$term%,author_id.in.($idsList)');
+      } else {
+        query = query.or('title.ilike.%$term%,body.ilike.%$term%');
+      }
+    }
+
+    // Sorting (Requirement 4)
+    var orderedQuery = query.order('is_pinned', ascending: false);
+    if (sortBy == 'likes') {
+      orderedQuery = orderedQuery
+          .order('likes_count', ascending: false)
+          .order('published_at', ascending: false);
+    } else if (sortBy == 'comments') {
+      orderedQuery = orderedQuery
+          .order('comments_count', ascending: false)
+          .order('published_at', ascending: false);
+    } else {
+      orderedQuery = orderedQuery.order('published_at', ascending: false);
+    }
+
+    final res = await orderedQuery.range(offset, offset + limit - 1);
 
     return (res as List)
         .map((e) => BlogPost.fromJson(
@@ -155,10 +200,16 @@ class BlogRepository {
     String? coverUrl,
     bool publishNow = true,
     List<UploadedMediaItem> galleryMedia = const [],
+    List<String> tags = const [],
   }) async {
     if (_client == null) return null;
     final uid = currentUserId;
     if (uid == null) return null;
+
+    final cleanedTags = tags
+        .map((t) => t.trim().toLowerCase())
+        .where((t) => t.isNotEmpty)
+        .toList();
 
     final res = await _client.from('posts').insert({
       'author_id': uid,
@@ -166,6 +217,7 @@ class BlogRepository {
       'body': body.trim(),
       'type': type,
       'category': category,
+      'tags': cleanedTags,
       'cover_url': coverUrl,
       'status': publishNow ? 'published' : 'draft',
       'published_at': publishNow ? DateTime.now().toIso8601String() : null,
@@ -206,6 +258,7 @@ class BlogRepository {
     bool? isPinned,
     String? status,
     List<UploadedMediaItem> newMediaItems = const [],
+    List<String>? tags,
   }) async {
     if (_client == null) return;
 
@@ -217,6 +270,13 @@ class BlogRepository {
       'cover_url': coverUrl,
       'updated_at': DateTime.now().toIso8601String(),
     };
+
+    if (tags != null) {
+      updates['tags'] = tags
+          .map((t) => t.trim().toLowerCase())
+          .where((t) => t.isNotEmpty)
+          .toList();
+    }
 
     if (isPinned != null) updates['is_pinned'] = isPinned;
     if (status != null) {
@@ -346,6 +406,154 @@ class BlogRepository {
     }
     await _client.from('posts').update(updates).eq('id', id);
   }
+  /// Fetch related posts based on matching category or shared tags, excluding the current post
+  Future<List<BlogPost>> getRelatedPosts({
+    required String postId,
+    required String category,
+    List<String> tags = const [],
+    int limit = 3,
+  }) async {
+    if (_client == null) return [];
+    final uid = currentUserId;
+
+    var query = _client
+        .from('posts')
+        .select(
+          '*, profiles:author_id(display_name, avatar_url), post_likes(user_id), post_comments(id), post_media(*)',
+        )
+        .eq('status', 'published')
+        .neq('id', postId);
+
+    if (category.isNotEmpty) {
+      query = query.eq('category', category);
+    }
+
+    final res = await query
+        .order('published_at', ascending: false)
+        .limit(limit);
+
+    return (res as List)
+        .map((e) => BlogPost.fromJson(
+              e,
+              currentUserId: uid,
+              supabaseUrl: supabaseUrl,
+            ))
+        .toList();
+  }
+
+  /// Get all categories
+  Future<List<BlogCategory>> getCategories() async {
+    if (_client == null) return [];
+    final res = await _client
+        .from('blog_categories')
+        .select('*')
+        .order('name', ascending: true);
+    return (res as List).map((c) => BlogCategory.fromJson(c)).toList();
+  }
+
+  /// Create new category
+  Future<void> createCategory({
+    required String name,
+    required String slug,
+    String? description,
+  }) async {
+    if (_client == null) return;
+    await _client.from('blog_categories').insert({
+      'name': name.trim(),
+      'slug': slug.trim().toLowerCase(),
+      'description': description?.trim(),
+    });
+  }
+
+  /// Rename existing category
+  Future<void> renameCategory({
+    required String id,
+    required String newName,
+    required String newSlug,
+  }) async {
+    if (_client == null) return;
+    await _client.from('blog_categories').update({
+      'name': newName.trim(),
+      'slug': newSlug.trim().toLowerCase(),
+    }).eq('id', id);
+  }
+
+  /// Merge source category into target category and reassign all posts
+  Future<void> mergeCategories({
+    required String sourceSlug,
+    required String targetSlug,
+  }) async {
+    if (_client == null) return;
+    await _client.rpc('merge_blog_categories', params: {
+      'p_source_slug': sourceSlug,
+      'p_target_slug': targetSlug,
+    });
+  }
+
+  /// Safely delete category, reassigning existing posts to fallback
+  Future<void> deleteCategory({
+    required String slug,
+    String fallbackSlug = 'news',
+  }) async {
+    if (_client == null) return;
+    await _client.rpc('delete_blog_category', params: {
+      'p_slug_to_delete': slug,
+      'p_fallback_slug': fallbackSlug,
+    });
+  }
+
+  /// Get all tags
+  Future<List<BlogTag>> getTags() async {
+    if (_client == null) return [];
+    final res = await _client
+        .from('blog_tags')
+        .select('*')
+        .order('name', ascending: true);
+    return (res as List).map((t) => BlogTag.fromJson(t)).toList();
+  }
+
+  /// Create new tag
+  Future<void> createTag(String name) async {
+    if (_client == null) return;
+    final clean = name.trim().toLowerCase();
+    await _client.from('blog_tags').insert({
+      'name': name.trim(),
+      'slug': clean.replaceAll(RegExp(r'\s+'), '-'),
+    });
+  }
+
+  /// Rename existing tag
+  Future<void> renameTag({
+    required String id,
+    required String newName,
+    required String newSlug,
+  }) async {
+    if (_client == null) return;
+    await _client.from('blog_tags').update({
+      'name': newName.trim(),
+      'slug': newSlug.trim().toLowerCase(),
+    }).eq('id', id);
+  }
+
+  /// Merge source tag into target tag and reassign in all posts
+  Future<void> mergeTags({
+    required String sourceName,
+    required String targetName,
+  }) async {
+    if (_client == null) return;
+    await _client.rpc('merge_blog_tags', params: {
+      'p_source_name': sourceName,
+      'p_target_name': targetName,
+    });
+  }
+
+  /// Safely delete tag from database and post tag arrays
+  Future<void> deleteTag(String tagName) async {
+    if (_client == null) return;
+    await _client.rpc('delete_blog_tag', params: {
+      'p_tag_name': tagName,
+    });
+  }
 }
 
 final blogRepositoryProvider = Provider<BlogRepository>((ref) {
@@ -356,16 +564,58 @@ final blogRepositoryProvider = Provider<BlogRepository>((ref) {
 
 /// Filter state providers
 final selectedBlogCategoryProvider = StateProvider<String>((ref) => 'all');
+final selectedBlogTypeProvider = StateProvider<String>((ref) => 'all');
+final selectedBlogTagProvider = StateProvider<String?>((ref) => null);
+final selectedBlogDateFilterProvider = StateProvider<String>((ref) => 'all');
+final selectedBlogSortProvider = StateProvider<String>((ref) => 'latest');
 final blogSearchQueryProvider = StateProvider<String>((ref) => '');
 
-/// Published blog feed provider reactive to category and search query
+/// Taxonomies providers
+final categoriesListProvider = FutureProvider<List<BlogCategory>>((ref) async {
+  return ref.watch(blogRepositoryProvider).getCategories();
+});
+
+final tagsListProvider = FutureProvider<List<BlogTag>>((ref) async {
+  return ref.watch(blogRepositoryProvider).getTags();
+});
+
+/// Related posts provider for post detail screen
+final relatedPostsProvider =
+    FutureProvider.family<List<BlogPost>, BlogPost>((ref, post) async {
+  return ref.watch(blogRepositoryProvider).getRelatedPosts(
+        postId: post.id,
+        category: post.category,
+        tags: post.tags,
+      );
+});
+
+/// Published blog feed provider reactive to all combined filters and search query
 final blogFeedProvider = FutureProvider<List<BlogPost>>((ref) async {
   final repo = ref.watch(blogRepositoryProvider);
   final category = ref.watch(selectedBlogCategoryProvider);
+  final type = ref.watch(selectedBlogTypeProvider);
+  final tag = ref.watch(selectedBlogTagProvider);
+  final dateFilter = ref.watch(selectedBlogDateFilterProvider);
+  final sortBy = ref.watch(selectedBlogSortProvider);
   final query = ref.watch(blogSearchQueryProvider);
+
+  DateTime? dateFrom;
+  if (dateFilter == 'today') {
+    dateFrom = DateTime.now().subtract(const Duration(days: 1));
+  } else if (dateFilter == 'week') {
+    dateFrom = DateTime.now().subtract(const Duration(days: 7));
+  } else if (dateFilter == 'month') {
+    dateFrom = DateTime.now().subtract(const Duration(days: 30));
+  } else if (dateFilter == 'year') {
+    dateFrom = DateTime.now().subtract(const Duration(days: 365));
+  }
 
   return repo.getPublishedPosts(
     category: category == 'all' ? null : category,
+    postType: type == 'all' ? null : type,
+    tag: tag,
+    dateFrom: dateFrom,
+    sortBy: sortBy,
     searchQuery: query.isEmpty ? null : query,
   );
 });

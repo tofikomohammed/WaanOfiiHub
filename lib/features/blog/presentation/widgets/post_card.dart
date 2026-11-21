@@ -95,7 +95,10 @@ class PostCard extends StatelessWidget {
                         ),
                       ],
                       const Spacer(),
-                      Text(dateStr, style: theme.textTheme.bodySmall),
+                      Text(
+                        '$dateStr • ${post.readingTimeMinutes} min read',
+                        style: theme.textTheme.bodySmall,
+                      ),
                     ],
                   ),
                   const SizedBox(height: 10),
@@ -112,6 +115,32 @@ class PostCard extends StatelessWidget {
                       style: theme.textTheme.bodyMedium,
                       maxLines: 3,
                       overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
+                  if (post.tags.isNotEmpty) ...[
+                    const SizedBox(height: 8),
+                    Wrap(
+                      spacing: 6,
+                      runSpacing: 4,
+                      children: post.tags.take(3).map((tag) {
+                        return Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 6,
+                            vertical: 2,
+                          ),
+                          decoration: BoxDecoration(
+                            color: theme.colorScheme.surfaceContainerHighest,
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          child: Text(
+                            '#$tag',
+                            style: TextStyle(
+                              fontSize: 10,
+                              color: theme.colorScheme.primary,
+                            ),
+                          ),
+                        );
+                      }).toList(),
                     ),
                   ],
                   const SizedBox(height: 12),

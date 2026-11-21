@@ -305,9 +305,27 @@ class _BlogDetailScreenState extends ConsumerState<BlogDetailScreen> {
                     ),
                   ],
                   const Spacer(),
-                  Text(dateStr, style: theme.textTheme.bodySmall),
+                  Text(
+                    '$dateStr • ${post.readingTimeMinutes} min read',
+                    style: theme.textTheme.bodySmall,
+                  ),
                 ],
               ),
+              if (post.tags.isNotEmpty) ...[
+                const SizedBox(height: 12),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 4,
+                  children: post.tags.map((tag) {
+                    return ActionChip(
+                      visualDensity: VisualDensity.compact,
+                      avatar: const Icon(Icons.tag, size: 14),
+                      label: Text(tag),
+                      onPressed: () => context.push('/blog/topic?tag=${Uri.encodeComponent(tag)}'),
+                    );
+                  }).toList(),
+                ),
+              ],
               const Divider(height: 32),
               if (post.type == 'audio' && post.coverUrl != null) ...[
                 AudioPlayerWidget(audioUrl: post.coverUrl!, title: post.title),
@@ -339,6 +357,63 @@ class _BlogDetailScreenState extends ConsumerState<BlogDetailScreen> {
                   Text('${post.commentsCount} Comments'),
                 ],
               ),
+
+              // Related Articles (Requirement 6)
+              Consumer(
+                builder: (context, ref, _) {
+                  final relatedAsync = ref.watch(relatedPostsProvider(post));
+                  return relatedAsync.when(
+                    data: (relatedList) {
+                      if (relatedList.isEmpty) return const SizedBox.shrink();
+                      return Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Divider(height: 32),
+                          Row(
+                            children: [
+                              const Icon(Icons.auto_stories_outlined, size: 20),
+                              const SizedBox(width: 8),
+                              Text(
+                                'Related Articles',
+                                style: theme.textTheme.titleMedium?.copyWith(
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 12),
+                          ...relatedList.map((relPost) => Card(
+                                margin: const EdgeInsets.only(bottom: 8),
+                                child: ListTile(
+                                  title: Text(
+                                    relPost.title,
+                                    maxLines: 2,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                  subtitle: Text(
+                                    '${relPost.categoryDisplayName} • ${relPost.readingTimeMinutes} min read',
+                                    style: theme.textTheme.bodySmall,
+                                  ),
+                                  trailing: const Icon(
+                                    Icons.arrow_forward_ios,
+                                    size: 14,
+                                  ),
+                                  onTap: () =>
+                                      context.push('/blog/${relPost.id}'),
+                                ),
+                              )),
+                        ],
+                      );
+                    },
+                    loading: () => const SizedBox.shrink(),
+                    error: (err, stack) => const SizedBox.shrink(),
+                  );
+                },
+              ),
+
               const Divider(height: 32),
               Text('Comments', style: theme.textTheme.titleMedium),
               const SizedBox(height: 12),

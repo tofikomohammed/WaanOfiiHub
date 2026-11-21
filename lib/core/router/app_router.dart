@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import '../config/env_config.dart';
 import '../../features/admin/presentation/admin_media_screen.dart';
 import '../../features/admin/presentation/admin_screen.dart';
+import '../../features/admin/presentation/admin_taxonomies_screen.dart';
 import '../../features/admin/presentation/audit_logs_screen.dart';
 import '../../features/admin/presentation/roles_management_screen.dart';
 import '../../features/admin/presentation/users_management_screen.dart';
@@ -14,6 +15,7 @@ import '../../features/blog/presentation/blog_create_screen.dart';
 import '../../features/blog/presentation/blog_detail_screen.dart';
 import '../../features/blog/presentation/blog_edit_screen.dart';
 import '../../features/blog/presentation/blog_feed_screen.dart';
+import '../../features/blog/presentation/category_tag_posts_screen.dart';
 import '../../features/blog/presentation/my_drafts_screen.dart';
 import '../../features/chat/presentation/chat_conversation_screen.dart';
 import '../../features/chat/presentation/chat_list_screen.dart';
@@ -108,6 +110,14 @@ final routerProvider = Provider<GoRouter>((ref) {
         },
       ),
       GoRoute(
+        path: '/blog/topic',
+        builder: (context, state) {
+          final cat = state.uri.queryParameters['category'];
+          final tag = state.uri.queryParameters['tag'];
+          return CategoryTagPostsScreen(category: cat, tag: tag);
+        },
+      ),
+      GoRoute(
         path: '/blog/:id',
         builder: (context, state) {
           final id = state.pathParameters['id'] ?? '';
@@ -152,6 +162,10 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/admin/media',
         builder: (context, state) => const AdminMediaScreen(),
+      ),
+      GoRoute(
+        path: '/admin/taxonomies',
+        builder: (context, state) => const AdminTaxonomiesScreen(),
       ),
       // Auth routes
       GoRoute(

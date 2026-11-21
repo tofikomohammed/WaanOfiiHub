@@ -169,6 +169,21 @@ class AdminScreen extends ConsumerWidget {
                 onTap: () => context.push('/admin/media'),
               ),
             ),
+            const SizedBox(height: 8),
+            Card(
+              child: ListTile(
+                leading: CircleAvatar(
+                  backgroundColor: theme.colorScheme.primaryContainer,
+                  child: const Icon(Icons.category_outlined),
+                ),
+                title: const Text('Categories & Tags'),
+                subtitle: const Text(
+                  'Manage taxonomy, create topics, rename, merge, and safe delete',
+                ),
+                trailing: const Icon(Icons.arrow_forward_ios_rounded, size: 16),
+                onTap: () => context.push('/admin/taxonomies'),
+              ),
+            ),
           ],
         ],
       ),
