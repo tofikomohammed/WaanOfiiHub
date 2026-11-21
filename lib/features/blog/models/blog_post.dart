@@ -55,11 +55,13 @@ class BlogPost {
   final String title;
   final String body;
   final String? coverUrl;
-  final String status; // 'draft', 'published', 'archived'
+  final String status; // 'draft', 'published', 'archived', 'scheduled'
   final DateTime? publishedAt;
+  final DateTime? scheduledFor;
   final bool isPinned;
   final int likesCount;
   final int commentsCount;
+  final int viewsCount;
   final bool isLikedByMe;
   final bool isBookmarkedByMe;
   final DateTime createdAt;
@@ -77,15 +79,19 @@ class BlogPost {
     this.coverUrl,
     required this.status,
     this.publishedAt,
+    this.scheduledFor,
     this.isPinned = false,
     this.likesCount = 0,
     this.commentsCount = 0,
+    this.viewsCount = 0,
     this.isLikedByMe = false,
     this.isBookmarkedByMe = false,
     required this.createdAt,
     this.media = const [],
     this.tags = const [],
   });
+
+  bool get isScheduled => status == 'scheduled';
 
   String get categoryDisplayName => BlogCategories.getDisplayName(category);
 
@@ -139,6 +145,7 @@ class BlogPost {
     final parsedTags = rawTags.map((t) => t.toString()).toList();
     final likesTotal = json['likes_count'] as int? ?? likes.length;
     final commentsTotal = json['comments_count'] as int? ?? comments.length;
+    final viewsTotal = json['views_count'] as int? ?? 0;
 
     return BlogPost(
       id: json['id'] as String,
@@ -153,9 +160,13 @@ class BlogPost {
       publishedAt: json['published_at'] != null
           ? DateTime.tryParse(json['published_at'] as String)
           : null,
+      scheduledFor: json['scheduled_for'] != null
+          ? DateTime.tryParse(json['scheduled_for'] as String)
+          : null,
       isPinned: json['is_pinned'] as bool? ?? false,
       likesCount: likesTotal,
       commentsCount: commentsTotal,
+      viewsCount: viewsTotal,
       isLikedByMe: isLiked,
       isBookmarkedByMe: isBookmarked,
       createdAt: json['created_at'] != null
@@ -174,11 +185,13 @@ class BlogPost {
     String? coverUrl,
     String? status,
     DateTime? publishedAt,
+    DateTime? scheduledFor,
     bool? isPinned,
     int? likesCount,
     bool? isLikedByMe,
     bool? isBookmarkedByMe,
     int? commentsCount,
+    int? viewsCount,
     List<PostMedia>? media,
     List<String>? tags,
   }) {
@@ -193,9 +206,11 @@ class BlogPost {
       coverUrl: coverUrl ?? this.coverUrl,
       status: status ?? this.status,
       publishedAt: publishedAt ?? this.publishedAt,
+      scheduledFor: scheduledFor ?? this.scheduledFor,
       isPinned: isPinned ?? this.isPinned,
       likesCount: likesCount ?? this.likesCount,
       commentsCount: commentsCount ?? this.commentsCount,
+      viewsCount: viewsCount ?? this.viewsCount,
       isLikedByMe: isLikedByMe ?? this.isLikedByMe,
       isBookmarkedByMe: isBookmarkedByMe ?? this.isBookmarkedByMe,
       createdAt: createdAt,

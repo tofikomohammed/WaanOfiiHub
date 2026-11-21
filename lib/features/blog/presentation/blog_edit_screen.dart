@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:intl/intl.dart';
 
 import '../../../core/errors/error_handler.dart';
 import '../../../core/widgets/error_view.dart';
@@ -33,10 +34,52 @@ class _BlogEditScreenState extends ConsumerState<BlogEditScreen> {
   String _selectedType = 'text';
   String _selectedCategory = BlogCategories.news;
   String _selectedStatus = 'draft';
+  DateTime? _scheduledFor;
   bool _isPinned = false;
   bool _isLoading = false;
   bool _isUploadingMedia = false;
   bool _isInitialized = false;
+
+  Future<void> _pickScheduleDateTime() async {
+    final now = DateTime.now();
+    final pickedDate = await showDatePicker(
+      context: context,
+      initialDate: _scheduledFor ?? now.add(const Duration(hours: 1)),
+      firstDate: now,
+      lastDate: now.add(const Duration(days: 365)),
+    );
+    if (pickedDate == null || !mounted) return;
+
+    final pickedTime = await showTimePicker(
+      context: context,
+      initialTime: TimeOfDay.fromDateTime(
+        _scheduledFor ?? now.add(const Duration(hours: 1)),
+      ),
+    );
+    if (pickedTime == null || !mounted) return;
+
+    final combined = DateTime(
+      pickedDate.year,
+      pickedDate.month,
+      pickedDate.day,
+      pickedTime.hour,
+      pickedTime.minute,
+    );
+
+    if (combined.isBefore(DateTime.now())) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Scheduled time must be in the future.')),
+        );
+      }
+      return;
+    }
+
+    setState(() {
+      _scheduledFor = combined;
+      _selectedStatus = 'scheduled';
+    });
+  }
 
   @override
   void initState() {
@@ -65,6 +108,7 @@ class _BlogEditScreenState extends ConsumerState<BlogEditScreen> {
     _selectedType = post.type;
     _selectedCategory = post.category;
     _selectedStatus = post.status;
+    _scheduledFor = post.scheduledFor;
     _isPinned = post.isPinned;
     _isInitialized = true;
   }
@@ -115,6 +159,8 @@ class _BlogEditScreenState extends ConsumerState<BlogEditScreen> {
                 ? _mediaUrlController.text.trim()
                 : null,
             status: _selectedStatus,
+            scheduledFor:
+                _selectedStatus == 'scheduled' ? _scheduledFor : null,
             isPinned: _isPinned,
           );
 
@@ -357,20 +403,50 @@ class _BlogEditScreenState extends ConsumerState<BlogEditScreen> {
                         value: 'draft',
                         child: Text('Draft (Unpublished)'),
                       ),
-                      if (canPublish)
+                      if (canPublish) ...[
                         const DropdownMenuItem(
                           value: 'published',
                           child: Text('Published'),
                         ),
+                        const DropdownMenuItem(
+                          value: 'scheduled',
+                          child: Text('Scheduled Publication'),
+                        ),
+                      ],
                       const DropdownMenuItem(
                         value: 'archived',
                         child: Text('Archived'),
                       ),
                     ],
                     onChanged: (val) {
-                      if (val != null) setState(() => _selectedStatus = val);
+                      if (val != null) {
+                        setState(() => _selectedStatus = val);
+                        if (val == 'scheduled' && _scheduledFor == null) {
+                          _pickScheduleDateTime();
+                        }
+                      }
                     },
                   ),
+                  if (_selectedStatus == 'scheduled') ...[
+                    const SizedBox(height: 12),
+                    Card(
+                      margin: EdgeInsets.zero,
+                      child: ListTile(
+                        leading: const Icon(
+                          Icons.schedule_rounded,
+                          color: Colors.purple,
+                        ),
+                        title: Text(
+                          _scheduledFor != null
+                              ? 'Scheduled: ${DateFormat.yMMMd().add_jm().format(_scheduledFor!.toLocal())}'
+                              : 'Set Schedule Time',
+                        ),
+                        subtitle: const Text('Tap to change publication date & time'),
+                        trailing: const Icon(Icons.edit_calendar, size: 20),
+                        onTap: _pickScheduleDateTime,
+                      ),
+                    ),
+                  ],
                   const SizedBox(height: 16),
 
                   // Pin Post Toggle (Admins)

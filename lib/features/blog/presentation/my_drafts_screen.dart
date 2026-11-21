@@ -54,6 +54,24 @@ class MyDraftsScreen extends ConsumerWidget {
     }
   }
 
+  Future<void> _handleCancelSchedule(
+    BuildContext context,
+    WidgetRef ref,
+    String id,
+  ) async {
+    try {
+      await ref.read(blogRepositoryProvider).cancelScheduledPost(id);
+      ref.invalidate(myDraftsProvider);
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Scheduled publication cancelled. Reverted to draft.')),
+        );
+      }
+    } catch (e) {
+      if (context.mounted) ErrorHandler.showSnackBar(context, e);
+    }
+  }
+
   Future<void> _handlePublish(
     BuildContext context,
     WidgetRef ref,
@@ -81,7 +99,7 @@ class MyDraftsScreen extends ConsumerWidget {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('My Drafts'),
+        title: const Text('My Drafts & Scheduled'),
         actions: [
           IconButton(
             icon: const Icon(Icons.add),
@@ -143,6 +161,28 @@ class MyDraftsScreen extends ConsumerWidget {
                             ),
                           ),
                         ),
+                        if (draft.isScheduled) ...[
+                          const SizedBox(width: 6),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 6,
+                              vertical: 2,
+                            ),
+                            decoration: BoxDecoration(
+                              color: Colors.purple.withAlpha(40),
+                              border: Border.all(color: Colors.purple),
+                              borderRadius: BorderRadius.circular(4),
+                            ),
+                            child: const Text(
+                              'SCHEDULED',
+                              style: TextStyle(
+                                fontSize: 10,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.purple,
+                              ),
+                            ),
+                          ),
+                        ],
                         const SizedBox(width: 8),
                         Expanded(
                           child: Text(
@@ -165,16 +205,35 @@ class MyDraftsScreen extends ConsumerWidget {
                             overflow: TextOverflow.ellipsis,
                           ),
                         const SizedBox(height: 6),
-                        Text(
-                          'Created $dateStr',
-                          style: theme.textTheme.bodySmall,
-                        ),
+                        if (draft.isScheduled && draft.scheduledFor != null)
+                          Text(
+                            'Scheduled for: ${DateFormat.yMMMd().add_jm().format(draft.scheduledFor!.toLocal())}',
+                            style: theme.textTheme.bodySmall?.copyWith(
+                              color: Colors.purple,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          )
+                        else
+                          Text(
+                            'Created $dateStr',
+                            style: theme.textTheme.bodySmall,
+                          ),
                       ],
                     ),
                     trailing: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        if (canPublish)
+                        if (draft.isScheduled)
+                          IconButton(
+                            icon: const Icon(
+                              Icons.cancel_schedule_send_rounded,
+                              color: Colors.purple,
+                            ),
+                            tooltip: 'Cancel Schedule',
+                            onPressed: () =>
+                                _handleCancelSchedule(context, ref, draft.id),
+                          )
+                        else if (canPublish)
                           IconButton(
                             icon: const Icon(
                               Icons.publish_rounded,

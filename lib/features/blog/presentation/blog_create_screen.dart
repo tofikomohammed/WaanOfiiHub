@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:intl/intl.dart';
 
 import '../../../core/errors/error_handler.dart';
 import '../../rbac/data/rbac_repository.dart';
@@ -28,7 +29,51 @@ class _BlogCreateScreenState extends ConsumerState<BlogCreateScreen> {
   String _selectedType = 'text';
   String _selectedCategory = BlogCategories.news;
   bool _publishNow = true;
+  bool _isScheduled = false;
+  DateTime? _scheduledDateTime;
   bool _isLoading = false;
+
+  Future<void> _pickScheduleDateTime() async {
+    final now = DateTime.now();
+    final pickedDate = await showDatePicker(
+      context: context,
+      initialDate: _scheduledDateTime ?? now.add(const Duration(hours: 1)),
+      firstDate: now,
+      lastDate: now.add(const Duration(days: 365)),
+    );
+    if (pickedDate == null || !mounted) return;
+
+    final pickedTime = await showTimePicker(
+      context: context,
+      initialTime: TimeOfDay.fromDateTime(
+        _scheduledDateTime ?? now.add(const Duration(hours: 1)),
+      ),
+    );
+    if (pickedTime == null || !mounted) return;
+
+    final combined = DateTime(
+      pickedDate.year,
+      pickedDate.month,
+      pickedDate.day,
+      pickedTime.hour,
+      pickedTime.minute,
+    );
+
+    if (combined.isBefore(DateTime.now())) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Scheduled time must be in the future.')),
+        );
+      }
+      return;
+    }
+
+    setState(() {
+      _scheduledDateTime = combined;
+      _isScheduled = true;
+      _publishNow = false;
+    });
+  }
 
   // Media state
   bool _isUploadingMedia = false;
@@ -224,6 +269,7 @@ class _BlogCreateScreenState extends ConsumerState<BlogCreateScreen> {
                 ? _coverUrlController.text.trim()
                 : null,
             publishNow: _publishNow,
+            scheduledFor: _isScheduled ? _scheduledDateTime : null,
             tags: tags,
             galleryMedia: _selectedType == 'image'
                 ? _galleryItems
@@ -240,9 +286,11 @@ class _BlogCreateScreenState extends ConsumerState<BlogCreateScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
-              _publishNow
-                  ? 'Post published successfully!'
-                  : 'Draft saved to My Drafts.',
+              _isScheduled
+                  ? 'Post scheduled for publication!'
+                  : (_publishNow
+                      ? 'Post published successfully!'
+                      : 'Draft saved to My Drafts.'),
             ),
           ),
         );
@@ -589,7 +637,7 @@ class _BlogCreateScreenState extends ConsumerState<BlogCreateScreen> {
               ),
               const SizedBox(height: 16),
 
-              // Publish Switch
+              // Publish & Schedule Controls
               SwitchListTile(
                 title: const Text('Publish Immediately'),
                 subtitle: Text(
@@ -597,13 +645,56 @@ class _BlogCreateScreenState extends ConsumerState<BlogCreateScreen> {
                       ? 'You lack publishing permissions. Saved as draft for review.'
                       : (_publishNow
                           ? 'Visible immediately to all readers'
-                          : 'Save as draft (only visible to you)'),
+                          : 'Save as draft or schedule for later'),
                 ),
                 value: canPublish && _publishNow,
                 onChanged: !canPublish
                     ? null
-                    : (val) => setState(() => _publishNow = val),
+                    : (val) {
+                        setState(() {
+                          _publishNow = val;
+                          if (val) {
+                            _isScheduled = false;
+                            _scheduledDateTime = null;
+                          }
+                        });
+                      },
               ),
+              if (canPublish && !_publishNow) ...[
+                const SizedBox(height: 8),
+                Card(
+                  margin: EdgeInsets.zero,
+                  child: ListTile(
+                    leading: Icon(
+                      Icons.schedule_rounded,
+                      color: _isScheduled ? Colors.purple : null,
+                    ),
+                    title: Text(
+                      _isScheduled && _scheduledDateTime != null
+                          ? 'Scheduled: ${DateFormat.yMMMd().add_jm().format(_scheduledDateTime!)}'
+                          : 'Schedule for Later',
+                    ),
+                    subtitle: Text(
+                      _isScheduled
+                          ? 'Will automatically publish at scheduled time'
+                          : 'Tap to pick date & time for automated publishing',
+                    ),
+                    trailing: _isScheduled
+                        ? IconButton(
+                            icon: const Icon(Icons.clear, color: Colors.red),
+                            tooltip: 'Cancel Schedule',
+                            onPressed: () {
+                              setState(() {
+                                _isScheduled = false;
+                                _scheduledDateTime = null;
+                              });
+                            },
+                          )
+                        : const Icon(Icons.arrow_forward_ios, size: 16),
+                    onTap: _pickScheduleDateTime,
+                  ),
+                ),
+              ],
             ],
           ),
         ),

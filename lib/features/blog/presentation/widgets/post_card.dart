@@ -20,9 +20,11 @@ class PostCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final dateStr = post.publishedAt != null
-        ? DateFormat.yMMMd().format(post.publishedAt!)
-        : 'Draft';
+    final dateStr = post.isScheduled && post.scheduledFor != null
+        ? 'Scheduled for ${DateFormat.MMMd().add_jm().format(post.scheduledFor!.toLocal())}'
+        : (post.publishedAt != null
+            ? DateFormat.yMMMd().format(post.publishedAt!)
+            : 'Draft');
 
     return Card(
       clipBehavior: Clip.antiAlias,
@@ -93,6 +95,35 @@ class PostCard extends StatelessWidget {
                           ),
                         ),
                       ),
+                      if (post.isScheduled) ...[
+                        const SizedBox(width: 8),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 4,
+                          ),
+                          decoration: BoxDecoration(
+                            color: Colors.purple.withAlpha(40),
+                            border: Border.all(color: Colors.purple),
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          child: const Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(Icons.schedule, size: 10, color: Colors.purple),
+                              SizedBox(width: 4),
+                              Text(
+                                'SCHEDULED',
+                                style: TextStyle(
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.purple,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
                       if (post.isPinned) ...[
                         const SizedBox(width: 8),
                         const Icon(
@@ -179,6 +210,13 @@ class PostCard extends StatelessWidget {
                       const SizedBox(width: 4),
                       Text(
                         '${post.commentsCount}',
+                        style: theme.textTheme.bodySmall,
+                      ),
+                      const SizedBox(width: 16),
+                      const Icon(Icons.remove_red_eye_outlined, size: 18),
+                      const SizedBox(width: 4),
+                      Text(
+                        '${post.viewsCount}',
                         style: theme.textTheme.bodySmall,
                       ),
                       if (onBookmarkToggle != null) ...[

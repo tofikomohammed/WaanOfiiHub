@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../config/env_config.dart';
 import '../../features/admin/presentation/admin_media_screen.dart';
+import '../../features/admin/presentation/admin_reports_screen.dart';
 import '../../features/admin/presentation/admin_screen.dart';
 import '../../features/admin/presentation/admin_taxonomies_screen.dart';
 import '../../features/admin/presentation/audit_logs_screen.dart';
@@ -167,6 +168,10 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/admin/media',
         builder: (context, state) => const AdminMediaScreen(),
+      ),
+      GoRoute(
+        path: '/admin/reports',
+        builder: (context, state) => const AdminReportsScreen(),
       ),
       GoRoute(
         path: '/admin/taxonomies',

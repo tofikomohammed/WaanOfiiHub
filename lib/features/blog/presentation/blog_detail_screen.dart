@@ -43,11 +43,22 @@ class BlogDetailScreen extends ConsumerStatefulWidget {
 
 class _BlogDetailScreenState extends ConsumerState<BlogDetailScreen> {
   final _commentController = TextEditingController();
+  final _focusNode = FocusNode();
   bool _isSubmitting = false;
+  PostComment? _replyingToComment;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      ref.read(blogRepositoryProvider).recordPostView(widget.postId);
+    });
+  }
 
   @override
   void dispose() {
     _commentController.dispose();
+    _focusNode.dispose();
     super.dispose();
   }
 
@@ -57,8 +68,13 @@ class _BlogDetailScreenState extends ConsumerState<BlogDetailScreen> {
 
     setState(() => _isSubmitting = true);
     try {
-      await ref.read(blogRepositoryProvider).addComment(widget.postId, text);
+      await ref.read(blogRepositoryProvider).addComment(
+            widget.postId,
+            text,
+            parentId: _replyingToComment?.id,
+          );
       _commentController.clear();
+      setState(() => _replyingToComment = null);
       ref.invalidate(postCommentsProvider(widget.postId));
       ref.invalidate(postDetailProvider(widget.postId));
       if (mounted) {
@@ -70,6 +86,121 @@ class _BlogDetailScreenState extends ConsumerState<BlogDetailScreen> {
       if (mounted) ErrorHandler.showSnackBar(context, e);
     } finally {
       if (mounted) setState(() => _isSubmitting = false);
+    }
+  }
+
+  Future<void> _handleEditComment(PostComment comment) async {
+    final editController = TextEditingController(text: comment.body);
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Edit Comment'),
+        content: TextField(
+          controller: editController,
+          autofocus: true,
+          maxLines: 3,
+          decoration: const InputDecoration(
+            labelText: 'Comment',
+            hintText: 'Edit your comment...',
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(ctx).pop(true),
+            child: const Text('Save'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true && mounted) {
+      final newText = editController.text.trim();
+      if (newText.isEmpty || newText == comment.body) return;
+
+      try {
+        await ref
+            .read(blogRepositoryProvider)
+            .updateComment(comment.id, newText);
+        ref.invalidate(postCommentsProvider(widget.postId));
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Comment updated.')),
+          );
+        }
+      } catch (e) {
+        if (mounted) ErrorHandler.showSnackBar(context, e);
+      }
+    }
+  }
+
+  Future<void> _handleDeleteComment(PostComment comment, bool isAdmin) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Delete Comment'),
+        content: const Text(
+          'Are you sure you want to delete this comment? Any replies to it will also be removed.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(backgroundColor: Colors.red),
+            onPressed: () => Navigator.of(ctx).pop(true),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true && mounted) {
+      try {
+        if (isAdmin) {
+          await ref
+              .read(blogRepositoryProvider)
+              .adminDeleteComment(comment.id);
+        } else {
+          await ref.read(blogRepositoryProvider).deleteComment(comment.id);
+        }
+        ref.invalidate(postCommentsProvider(widget.postId));
+        ref.invalidate(postDetailProvider(widget.postId));
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Comment deleted.')),
+          );
+        }
+      } catch (e) {
+        if (mounted) ErrorHandler.showSnackBar(context, e);
+      }
+    }
+  }
+
+  Future<void> _handleToggleHideComment(PostComment comment) async {
+    final newHideState = !comment.isHidden;
+    try {
+      await ref
+          .read(blogRepositoryProvider)
+          .adminHideComment(comment.id, newHideState);
+      ref.invalidate(postCommentsProvider(widget.postId));
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              newHideState
+                  ? 'Comment hidden from public.'
+                  : 'Comment is now visible.',
+            ),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) ErrorHandler.showSnackBar(context, e);
     }
   }
 
@@ -279,9 +410,11 @@ class _BlogDetailScreenState extends ConsumerState<BlogDetailScreen> {
         final canDeleteThis =
             (isAuthor && post.status == 'draft') || canDelete;
 
-        final dateStr = post.publishedAt != null
-            ? DateFormat.yMMMd().format(post.publishedAt!)
-            : 'Draft';
+        final dateStr = post.isScheduled && post.scheduledFor != null
+            ? 'Scheduled for ${DateFormat.yMMMd().add_jm().format(post.scheduledFor!.toLocal())}'
+            : (post.publishedAt != null
+                ? DateFormat.yMMMd().format(post.publishedAt!)
+                : 'Draft');
 
         return Scaffold(
           appBar: AppBar(
@@ -415,6 +548,35 @@ class _BlogDetailScreenState extends ConsumerState<BlogDetailScreen> {
                       ),
                     ),
                   ),
+                  if (post.isScheduled) ...[
+                    const SizedBox(width: 8),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 4,
+                      ),
+                      decoration: BoxDecoration(
+                        color: Colors.purple.withAlpha(40),
+                        border: Border.all(color: Colors.purple),
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      child: const Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.schedule, size: 10, color: Colors.purple),
+                          SizedBox(width: 4),
+                          Text(
+                            'SCHEDULED',
+                            style: TextStyle(
+                              fontSize: 10,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.purple,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
                   if (post.status == 'draft') ...[
                     const SizedBox(width: 8),
                     Container(
@@ -525,10 +687,14 @@ class _BlogDetailScreenState extends ConsumerState<BlogDetailScreen> {
                     },
                   ),
                   Text('${post.likesCount} Likes'),
-                  const SizedBox(width: 24),
+                  const SizedBox(width: 16),
                   const Icon(Icons.mode_comment_outlined, size: 20),
                   const SizedBox(width: 6),
                   Text('${post.commentsCount} Comments'),
+                  const SizedBox(width: 16),
+                  const Icon(Icons.remove_red_eye_outlined, size: 20),
+                  const SizedBox(width: 6),
+                  Text('${post.viewsCount} Views'),
                 ],
               ),
 
@@ -591,13 +757,51 @@ class _BlogDetailScreenState extends ConsumerState<BlogDetailScreen> {
               const Divider(height: 32),
               Text('Comments', style: theme.textTheme.titleMedium),
               const SizedBox(height: 12),
+              if (_replyingToComment != null) ...[
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: theme.colorScheme.primaryContainer.withAlpha(140),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(
+                      color: theme.colorScheme.primary.withAlpha(60),
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.reply, size: 16),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          'Replying to ${_replyingToComment!.userName}',
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                      IconButton(
+                        visualDensity: VisualDensity.compact,
+                        icon: const Icon(Icons.close, size: 16),
+                        tooltip: 'Cancel Reply',
+                        onPressed: () =>
+                            setState(() => _replyingToComment = null),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 8),
+              ],
               Row(
                 children: [
                   Expanded(
                     child: TextField(
                       controller: _commentController,
-                      decoration: const InputDecoration(
-                        hintText: 'Write a comment...',
+                      focusNode: _focusNode,
+                      decoration: InputDecoration(
+                        hintText: _replyingToComment != null
+                            ? 'Write a reply to ${_replyingToComment!.userName}...'
+                            : 'Write a comment...',
                       ),
                     ),
                   ),
@@ -628,62 +832,31 @@ class _BlogDetailScreenState extends ConsumerState<BlogDetailScreen> {
                       child: Text('No comments yet. Be the first to reply!'),
                     );
                   }
+                  final tree = PostComment.buildTree(comments);
                   return Column(
-                    children: comments.map((c) {
-                      final isMe = c.userId == currentUserId;
-                      return ListTile(
-                        leading: CircleAvatar(
-                          child: Text(
-                            c.userName.isNotEmpty
-                                ? c.userName[0].toUpperCase()
-                                : 'U',
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: tree.map((root) {
+                      return Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          _buildCommentTile(
+                            comment: root,
+                            currentUserId: currentUserId,
+                            canEditAny: canEditAny,
+                            theme: theme,
+                            isReply: false,
                           ),
-                        ),
-                        title: Text(
-                          c.userName,
-                          style: const TextStyle(fontWeight: FontWeight.bold),
-                        ),
-                        subtitle: Text(c.body),
-                        trailing: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Text(
-                              DateFormat.MMMd().format(c.createdAt),
-                              style: theme.textTheme.bodySmall,
+                          if (root.replies.isNotEmpty)
+                            ...root.replies.map(
+                              (reply) => _buildCommentTile(
+                                comment: reply,
+                                currentUserId: currentUserId,
+                                canEditAny: canEditAny,
+                                theme: theme,
+                                isReply: true,
+                              ),
                             ),
-                            if (!isMe) ...[
-                              const SizedBox(width: 8),
-                              IconButton(
-                                icon: const Icon(
-                                  Icons.chat_bubble_outline_rounded,
-                                  size: 18,
-                                  color: Colors.teal,
-                                ),
-                                tooltip: 'Chat with ${c.userName}',
-                                onPressed: () async {
-                                  final convId = await ref
-                                      .read(chatRepositoryProvider)
-                                      .startDirectChat(c.userId);
-                                  if (convId != null && context.mounted) {
-                                    unawaited(context.push('/chat/$convId'));
-                                  }
-                                },
-                              ),
-                              IconButton(
-                                icon: const Icon(
-                                  Icons.flag_outlined,
-                                  size: 16,
-                                  color: Colors.orange,
-                                ),
-                                tooltip: 'Report Comment',
-                                onPressed: () => _handleReportComment(
-                                  c.id,
-                                  widget.postId,
-                                ),
-                              ),
-                            ],
-                          ],
-                        ),
+                        ],
                       );
                     }).toList(),
                   );
@@ -693,6 +866,228 @@ class _BlogDetailScreenState extends ConsumerState<BlogDetailScreen> {
           ),
         );
       },
+    );
+  }
+
+  Widget _buildCommentTile({
+    required PostComment comment,
+    required String? currentUserId,
+    required bool canEditAny,
+    required ThemeData theme,
+    bool isReply = false,
+  }) {
+    final isMe = comment.userId == currentUserId;
+    final dateStr = DateFormat.MMMd().format(comment.createdAt);
+    final editedStr = comment.updatedAt != null ? ' (edited)' : '';
+
+    return Container(
+      margin: EdgeInsets.only(
+        left: isReply ? 28.0 : 0.0,
+        top: 6.0,
+        bottom: 6.0,
+      ),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: isReply
+            ? theme.colorScheme.surfaceContainerLow
+            : theme.colorScheme.surfaceContainerHighest.withAlpha(60),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(
+          color: isReply
+              ? theme.colorScheme.outlineVariant.withAlpha(80)
+              : theme.colorScheme.outlineVariant.withAlpha(120),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              CircleAvatar(
+                radius: isReply ? 12 : 14,
+                child: Text(
+                  comment.userName.isNotEmpty
+                      ? comment.userName[0].toUpperCase()
+                      : 'U',
+                  style: TextStyle(fontSize: isReply ? 10 : 12),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Row(
+                  children: [
+                    Text(
+                      comment.userName,
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        fontWeight: FontWeight.bold,
+                        fontSize: isReply ? 13 : 14,
+                      ),
+                    ),
+                    const SizedBox(width: 6),
+                    Text(
+                      '$dateStr$editedStr',
+                      style: theme.textTheme.bodySmall?.copyWith(fontSize: 11),
+                    ),
+                    if (comment.isHidden) ...[
+                      const SizedBox(width: 6),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 4,
+                          vertical: 1,
+                        ),
+                        decoration: BoxDecoration(
+                          color: Colors.orange.withAlpha(40),
+                          borderRadius: BorderRadius.circular(3),
+                        ),
+                        child: const Text(
+                          'HIDDEN',
+                          style: TextStyle(
+                            fontSize: 9,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.orange,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+              PopupMenuButton<String>(
+                icon: const Icon(Icons.more_vert, size: 16),
+                padding: EdgeInsets.zero,
+                onSelected: (val) async {
+                  if (val == 'reply') {
+                    setState(() => _replyingToComment = comment);
+                    _focusNode.requestFocus();
+                  } else if (val == 'edit') {
+                    await _handleEditComment(comment);
+                  } else if (val == 'delete') {
+                    await _handleDeleteComment(comment, canEditAny);
+                  } else if (val == 'toggle_hide') {
+                    await _handleToggleHideComment(comment);
+                  } else if (val == 'report') {
+                    await _handleReportComment(comment.id, widget.postId);
+                  } else if (val == 'chat') {
+                    final convId = await ref
+                        .read(chatRepositoryProvider)
+                        .startDirectChat(comment.userId);
+                    if (convId != null && mounted) {
+                      unawaited(context.push('/chat/$convId'));
+                    }
+                  }
+                },
+                itemBuilder: (ctx) => [
+                  if (!isReply)
+                    const PopupMenuItem(
+                      value: 'reply',
+                      child: Row(
+                        children: [
+                          Icon(Icons.reply, size: 16),
+                          SizedBox(width: 8),
+                          Text('Reply'),
+                        ],
+                      ),
+                    ),
+                  if (isMe)
+                    const PopupMenuItem(
+                      value: 'edit',
+                      child: Row(
+                        children: [
+                          Icon(Icons.edit_outlined, size: 16),
+                          SizedBox(width: 8),
+                          Text('Edit'),
+                        ],
+                      ),
+                    ),
+                  if (isMe || canEditAny)
+                    const PopupMenuItem(
+                      value: 'delete',
+                      child: Row(
+                        children: [
+                          Icon(Icons.delete_outline,
+                              size: 16, color: Colors.red),
+                          SizedBox(width: 8),
+                          Text('Delete',
+                              style: TextStyle(color: Colors.red)),
+                        ],
+                      ),
+                    ),
+                  if (canEditAny)
+                    PopupMenuItem(
+                      value: 'toggle_hide',
+                      child: Row(
+                        children: [
+                          Icon(
+                            comment.isHidden
+                                ? Icons.visibility
+                                : Icons.visibility_off,
+                            size: 16,
+                          ),
+                          const SizedBox(width: 8),
+                          Text(comment.isHidden
+                              ? 'Unhide Comment'
+                              : 'Hide Comment'),
+                        ],
+                      ),
+                    ),
+                  if (!isMe) ...[
+                    const PopupMenuItem(
+                      value: 'chat',
+                      child: Row(
+                        children: [
+                          Icon(Icons.chat_bubble_outline_rounded,
+                              size: 16, color: Colors.teal),
+                          SizedBox(width: 8),
+                          Text('Direct Chat'),
+                        ],
+                      ),
+                    ),
+                    const PopupMenuItem(
+                      value: 'report',
+                      child: Row(
+                        children: [
+                          Icon(Icons.flag_outlined,
+                              size: 16, color: Colors.orange),
+                          SizedBox(width: 8),
+                          Text('Report'),
+                        ],
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          Text(
+            comment.body,
+            style: theme.textTheme.bodyMedium?.copyWith(
+              color:
+                  comment.isHidden ? theme.colorScheme.onSurfaceVariant : null,
+              fontStyle: comment.isHidden ? FontStyle.italic : null,
+            ),
+          ),
+          if (!isReply) ...[
+            const SizedBox(height: 4),
+            Row(
+              children: [
+                TextButton.icon(
+                  style: TextButton.styleFrom(
+                    visualDensity: VisualDensity.compact,
+                    padding: const EdgeInsets.symmetric(horizontal: 4),
+                  ),
+                  icon: const Icon(Icons.reply, size: 14),
+                  label: const Text('Reply', style: TextStyle(fontSize: 12)),
+                  onPressed: () {
+                    setState(() => _replyingToComment = comment);
+                    _focusNode.requestFocus();
+                  },
+                ),
+              ],
+            ),
+          ],
+        ],
+      ),
     );
   }
 }

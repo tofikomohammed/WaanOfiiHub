@@ -102,7 +102,13 @@ class BlogRepository {
         .toList();
   }
 
-  /// Fetch private drafts created by the current user
+  static String? _clientSessionId;
+  String _getSessionHash() {
+    _clientSessionId ??= DateTime.now().microsecondsSinceEpoch.toString();
+    return _clientSessionId!;
+  }
+
+  /// Fetch private drafts and scheduled posts created by the current user
   Future<List<BlogPost>> getMyDrafts() async {
     if (_client == null) return [];
     final uid = currentUserId;
@@ -114,7 +120,7 @@ class BlogRepository {
           '*, profiles:author_id(display_name, avatar_url), post_likes(user_id), post_bookmarks(user_id), post_media(*)',
         )
         .eq('author_id', uid)
-        .eq('status', 'draft')
+        .inFilter('status', ['draft', 'scheduled'])
         .order('created_at', ascending: false);
 
     return (res as List)
@@ -124,6 +130,20 @@ class BlogRepository {
               supabaseUrl: supabaseUrl,
             ))
         .toList();
+  }
+
+  /// Record post view deduplicated by session and viewer (6-hour window, ignores author)
+  Future<bool> recordPostView(String postId, {String? sessionHash}) async {
+    if (_client == null) return false;
+    try {
+      final res = await _client.rpc('record_post_view', params: {
+        'p_post_id': postId,
+        'p_session_hash': sessionHash ?? _getSessionHash(),
+      });
+      return res as bool? ?? false;
+    } catch (_) {
+      return false;
+    }
   }
 
   /// Get single post by ID
@@ -249,21 +269,24 @@ class BlogRepository {
     });
   }
 
-  /// Fetch comments for a post
+  /// Fetch comments for a post (RLS automatically handles visibility of hidden comments)
   Future<List<PostComment>> getComments(String postId) async {
     if (_client == null) return [];
     final res = await _client
         .from('post_comments')
         .select('*, profiles:user_id(display_name, avatar_url)')
         .eq('post_id', postId)
-        .eq('is_hidden', false)
         .order('created_at', ascending: true);
 
     return (res as List).map((e) => PostComment.fromJson(e)).toList();
   }
 
-  /// Add comment to post with input sanitization
-  Future<void> addComment(String postId, String body) async {
+  /// Add comment or reply to post with input sanitization
+  Future<void> addComment(
+    String postId,
+    String body, {
+    String? parentId,
+  }) async {
     if (_client == null) return;
     final uid = currentUserId;
     if (uid == null) return;
@@ -271,14 +294,115 @@ class BlogRepository {
     final sanitized = ContentSanitizer.sanitizeComment(body);
     if (sanitized.isEmpty) return;
 
-    await _client.from('post_comments').insert({
+    final insertData = <String, dynamic>{
       'post_id': postId,
       'user_id': uid,
       'body': sanitized,
+    };
+    if (parentId != null && parentId.isNotEmpty) {
+      insertData['parent_id'] = parentId;
+    }
+
+    await _client.from('post_comments').insert(insertData);
+  }
+
+  /// Update own comment
+  Future<void> updateComment(String commentId, String newBody) async {
+    if (_client == null) return;
+    final sanitized = ContentSanitizer.sanitizeComment(newBody);
+    if (sanitized.isEmpty) return;
+
+    await _client.from('post_comments').update({
+      'body': sanitized,
+      'updated_at': DateTime.now().toUtc().toIso8601String(),
+    }).eq('id', commentId);
+  }
+
+  /// Delete own comment
+  Future<void> deleteComment(String commentId) async {
+    if (_client == null) return;
+    await _client.from('post_comments').delete().eq('id', commentId);
+  }
+
+  /// Admin hide or unhide comment (recorded in audit logs)
+  Future<void> adminHideComment(String commentId, bool hide) async {
+    if (_client == null) return;
+    await _client.rpc('admin_hide_comment', params: {
+      'p_comment_id': commentId,
+      'p_hide': hide,
     });
   }
 
-  /// Create a new post with optional gallery media items and content sanitization
+  /// Admin delete comment (recorded in audit logs)
+  Future<void> adminDeleteComment(String commentId) async {
+    if (_client == null) return;
+    await _client.rpc('admin_delete_comment', params: {
+      'p_comment_id': commentId,
+    });
+  }
+
+  /// Admin delete post (recorded in audit logs)
+  Future<void> adminDeletePost(String postId) async {
+    if (_client == null) return;
+    await _client.rpc('admin_delete_post', params: {
+      'p_post_id': postId,
+    });
+  }
+
+  /// Admin publish / unpublish post (recorded in audit logs)
+  Future<void> adminSetPublishStatus(String postId, bool publish) async {
+    if (_client == null) return;
+    await _client.rpc('admin_set_publish_status', params: {
+      'p_post_id': postId,
+      'p_publish': publish,
+    });
+  }
+
+  /// Schedule a post for future publication
+  Future<void> schedulePost(String postId, DateTime scheduledFor) async {
+    if (_client == null) return;
+    await _client.from('posts').update({
+      'status': 'scheduled',
+      'scheduled_for': scheduledFor.toUtc().toIso8601String(),
+      'updated_at': DateTime.now().toUtc().toIso8601String(),
+    }).eq('id', postId);
+  }
+
+  /// Cancel scheduled post, reverting to draft
+  Future<void> cancelScheduledPost(String postId) async {
+    if (_client == null) return;
+    await _client.from('posts').update({
+      'status': 'draft',
+      'scheduled_for': null,
+      'updated_at': DateTime.now().toUtc().toIso8601String(),
+    }).eq('id', postId);
+  }
+
+  /// Fetch moderation reports for admins
+  Future<List<Map<String, dynamic>>> getModerationReports({
+    String? status = 'open',
+  }) async {
+    if (_client == null) return [];
+    var query = _client.from('reports').select(
+      '*, reporter:reporter_id(display_name, avatar_url), post:post_id(title, status), comment:comment_id(body, is_hidden)',
+    );
+    if (status != null && status.isNotEmpty && status != 'all') {
+      query = query.eq('status', status);
+    }
+    final res = await query.order('created_at', ascending: false);
+    return List<Map<String, dynamic>>.from(res as List);
+  }
+
+  /// Admin action moderation report (dismiss, action_hide, action_delete)
+  Future<void> adminActionReport(String reportId, String action) async {
+    if (_client == null) return;
+    await _client.rpc('admin_action_report', params: {
+      'p_report_id': reportId,
+      'p_action': action,
+    });
+  }
+
+  /// Create a new post with optional gallery media, scheduling, and content sanitization
   Future<String?> createPost({
     required String title,
     required String body,
@@ -286,6 +410,7 @@ class BlogRepository {
     String category = BlogCategories.news,
     String? coverUrl,
     bool publishNow = true,
+    DateTime? scheduledFor,
     List<UploadedMediaItem> galleryMedia = const [],
     List<String> tags = const [],
   }) async {
@@ -297,6 +422,14 @@ class BlogRepository {
     final sanitizedBody = ContentSanitizer.sanitizeBody(body);
     final cleanedTags = ContentSanitizer.sanitizeTags(tags);
 
+    final isScheduled =
+        scheduledFor != null && scheduledFor.isAfter(DateTime.now());
+    final status = isScheduled ? 'scheduled' : (publishNow ? 'published' : 'draft');
+    final publishedAt =
+        (publishNow && !isScheduled) ? DateTime.now().toUtc().toIso8601String() : null;
+    final scheduledForIso =
+        isScheduled ? scheduledFor.toUtc().toIso8601String() : null;
+
     final res = await _client.from('posts').insert({
       'author_id': uid,
       'title': sanitizedTitle,
@@ -305,8 +438,9 @@ class BlogRepository {
       'category': category,
       'tags': cleanedTags,
       'cover_url': coverUrl,
-      'status': publishNow ? 'published' : 'draft',
-      'published_at': publishNow ? DateTime.now().toIso8601String() : null,
+      'status': status,
+      'published_at': publishedAt,
+      'scheduled_for': scheduledForIso,
     }).select('id').single();
 
     final newPostId = res['id'] as String;
@@ -333,7 +467,7 @@ class BlogRepository {
     return newPostId;
   }
 
-  /// Update an existing post with content sanitization
+  /// Update an existing post with content sanitization and scheduling support
   Future<void> updatePost({
     required String id,
     required String title,
@@ -343,6 +477,7 @@ class BlogRepository {
     String? coverUrl,
     bool? isPinned,
     String? status,
+    DateTime? scheduledFor,
     List<UploadedMediaItem> newMediaItems = const [],
     List<String>? tags,
   }) async {
@@ -354,7 +489,7 @@ class BlogRepository {
       'type': type,
       'category': category,
       'cover_url': coverUrl,
-      'updated_at': DateTime.now().toIso8601String(),
+      'updated_at': DateTime.now().toUtc().toIso8601String(),
     };
 
     if (tags != null) {
@@ -362,10 +497,16 @@ class BlogRepository {
     }
 
     if (isPinned != null) updates['is_pinned'] = isPinned;
-    if (status != null) {
+    if (scheduledFor != null) {
+      updates['scheduled_for'] = scheduledFor.toUtc().toIso8601String();
+      updates['status'] = 'scheduled';
+    } else if (status != null) {
       updates['status'] = status;
       if (status == 'published') {
-        updates['published_at'] = DateTime.now().toIso8601String();
+        updates['published_at'] = DateTime.now().toUtc().toIso8601String();
+        updates['scheduled_for'] = null;
+      } else if (status == 'draft') {
+        updates['scheduled_for'] = null;
       }
     }
 
@@ -713,4 +854,14 @@ final myDraftsProvider = FutureProvider<List<BlogPost>>((ref) async {
 final myBookmarksProvider = FutureProvider<List<BlogPost>>((ref) async {
   final repo = ref.watch(blogRepositoryProvider);
   return repo.getBookmarkedPosts();
+});
+
+/// Moderation reports provider for admin queue
+final moderationReportsProvider =
+    FutureProvider.family<List<Map<String, dynamic>>, String>((
+  ref,
+  status,
+) async {
+  final repo = ref.watch(blogRepositoryProvider);
+  return repo.getModerationReports(status: status);
 });
