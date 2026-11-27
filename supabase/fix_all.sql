@@ -972,14 +972,24 @@ DO $$
 DECLARE
     target_user_id UUID;
     superadmin_role_id UUID;
+    admin_role_id UUID;
 BEGIN
     SELECT id INTO target_user_id FROM auth.users WHERE LOWER(email) = 'tofiko@gmail.com';
     SELECT id INTO superadmin_role_id FROM public.roles WHERE key = 'superadmin';
+    SELECT id INTO admin_role_id FROM public.roles WHERE key = 'admin';
 
-    IF target_user_id IS NOT NULL AND superadmin_role_id IS NOT NULL THEN
-        INSERT INTO public.user_roles (user_id, role_id, assigned_by)
-        VALUES (target_user_id, superadmin_role_id, target_user_id)
-        ON CONFLICT (user_id, role_id) DO NOTHING;
+    IF target_user_id IS NOT NULL THEN
+        IF superadmin_role_id IS NOT NULL THEN
+            INSERT INTO public.user_roles (user_id, role_id, assigned_by)
+            VALUES (target_user_id, superadmin_role_id, target_user_id)
+            ON CONFLICT (user_id, role_id) DO NOTHING;
+        END IF;
+
+        IF admin_role_id IS NOT NULL THEN
+            INSERT INTO public.user_roles (user_id, role_id, assigned_by)
+            VALUES (target_user_id, admin_role_id, target_user_id)
+            ON CONFLICT (user_id, role_id) DO NOTHING;
+        END IF;
 
         INSERT INTO public.audit_logs (actor_id, action, target_type, target_id, metadata)
         VALUES (
@@ -987,9 +997,9 @@ BEGIN
             'bootstrap_superadmin',
             'user_roles',
             target_user_id::TEXT,
-            jsonb_build_object('assigned_email', 'tofiko@gmail.com', 'role', 'superadmin')
+            jsonb_build_object('assigned_email', 'tofiko@gmail.com', 'roles', ARRAY['superadmin', 'admin'])
         );
-        RAISE NOTICE 'Granted superadmin to tofiko@gmail.com (%)', target_user_id;
+        RAISE NOTICE 'Granted superadmin and admin to tofiko@gmail.com (%)', target_user_id;
     ELSE
         RAISE NOTICE 'User tofiko@gmail.com not yet registered in auth.users. Grant will take effect once registered.';
     END IF;
