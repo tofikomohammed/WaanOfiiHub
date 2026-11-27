@@ -1,934 +1,1043 @@
-import 'dart:async';
-
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:intl/intl.dart';
 
-import '../../../core/config/env_config.dart';
 import '../../../core/router/route_names.dart';
-import '../../../core/theme/app_theme.dart';
-import '../../auth/data/auth_repository.dart';
+import '../../../core/theme/app_colors.dart';
 import '../../blog/data/blog_repository.dart';
+import '../../blog/models/blog_post.dart';
 import '../../chat/data/chat_repository.dart';
 import '../../profile/data/profile_repository.dart';
-import '../../rbac/data/rbac_repository.dart';
 
-class HomeScreen extends ConsumerWidget {
+class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
 
-  String _getTimeBasedGreeting() {
-    final hour = DateTime.now().hour;
-    if (hour < 12) return 'Good morning';
-    if (hour < 17) return 'Good afternoon';
-    return 'Good evening';
+  @override
+  ConsumerState<HomeScreen> createState() => _HomeScreenState();
+}
+
+class _HomeScreenState extends ConsumerState<HomeScreen> {
+  String _selectedCategory = 'All';
+  final TextEditingController _quickChatController = TextEditingController();
+
+  final List<String> _categories = [
+    'All',
+    'Health',
+    'Technology',
+    'Business',
+    'Community',
+  ];
+
+  @override
+  void dispose() {
+    _quickChatController.dispose();
+    super.dispose();
   }
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
-    final profile = ref.watch(currentProfileProvider).valueOrNull;
-    final authUser = ref.watch(authRepositoryProvider).currentUser;
-    final convsAsync = ref.watch(conversationsListProvider);
-    final blogAsync = ref.watch(blogFeedProvider);
-    final perms = ref.watch(myPermissionsProvider).valueOrNull ?? [];
-    final canCreatePost = perms.contains('blog.create');
+    final blogPosts = ref.watch(blogFeedProvider).valueOrNull ?? [];
+    final bookmarkedPosts = ref.watch(myBookmarksProvider).valueOrNull ?? [];
 
-    final displayName =
-        profile?.displayName ??
-        authUser?.userMetadata?['display_name'] as String? ??
-        authUser?.email?.split('@').first ??
-        'User';
-
-    final publicId = profile?.publicId ?? 'WOH-PENDING';
+    // Featured post (first post or default fallback)
+    final featuredPost = blogPosts.isNotEmpty
+        ? blogPosts.first
+        : BlogPost(
+            id: 'featured-1',
+            authorId: 'auth-1',
+            authorName: 'Dr. Bilal Ahmed',
+            type: 'text',
+            category: 'agriculture',
+            title: 'Modern Drip Irrigation Systems for Smallholder Farmers',
+            body: 'Conserving water through high-efficiency gravity-fed micro irrigation.',
+            status: 'published',
+            likesCount: 48,
+            commentsCount: 12,
+            createdAt: DateTime(2026, 11, 27),
+          );
 
     return Scaffold(
-      appBar: AppBar(
-        title: Row(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(6),
-              decoration: BoxDecoration(
-                color: theme.colorScheme.primaryContainer,
-                shape: BoxShape.circle,
-              ),
-              child: Icon(
-                Icons.hub_rounded,
-                size: 20,
-                color: theme.colorScheme.primary,
-              ),
-            ),
-            const SizedBox(width: 10),
-            const Text(
-              EnvConfig.appName,
-              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
-            ),
-          ],
-        ),
-        actions: [
-          IconButton(
-            icon: Icon(
-              isDark ? Icons.light_mode_outlined : Icons.dark_mode_outlined,
-            ),
-            tooltip: 'Toggle Theme',
-            onPressed: () {
-              ref.read(themeModeProvider.notifier).toggleTheme();
-            },
-          ),
-          IconButton(
-            icon: const Icon(Icons.logout_rounded),
-            tooltip: 'Sign Out',
-            onPressed: () async {
-              await ref.read(authRepositoryProvider).signOut();
+      backgroundColor: isDark
+          ? AppColors.darkBackground
+          : AppColors.lightBackground,
+      body: LayoutBuilder(
+        builder: (context, constraints) {
+          final isLargeScreen = constraints.maxWidth >= 1050;
+
+          return RefreshIndicator(
+            onRefresh: () async {
+              ref.invalidate(blogFeedProvider);
+              ref.invalidate(myBookmarksProvider);
               ref.invalidate(currentProfileProvider);
-              if (context.mounted) {
-                context.go(RouteNames.login);
-              }
+              ref.invalidate(conversationsListProvider);
             },
-          ),
-        ],
-      ),
-      body: RefreshIndicator(
-        onRefresh: () async {
-          ref.invalidate(currentProfileProvider);
-          ref.invalidate(conversationsListProvider);
-          ref.invalidate(blogFeedProvider);
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.all(16.0),
+              child: isLargeScreen
+                  ? Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // Left & Middle Content (Hero, Stats, Community)
+                        Expanded(
+                          flex: 7,
+                          child: _buildMainFeedSection(
+                            context,
+                            featuredPost,
+                            blogPosts,
+                            bookmarkedPosts.length,
+                          ),
+                        ),
+                        const SizedBox(width: 20),
+
+                        // Right Column: Messages & Stories Quick Chat Panel
+                        SizedBox(
+                          width: 360,
+                          child: _buildRightMessagesPanel(context),
+                        ),
+                      ],
+                    )
+                  : Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        _buildMainFeedSection(
+                          context,
+                          featuredPost,
+                          blogPosts,
+                          bookmarkedPosts.length,
+                        ),
+                        const SizedBox(height: 24),
+                        _buildRightMessagesPanel(context),
+                      ],
+                    ),
+            ),
+          );
         },
-        child: ListView(
-          padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 12.0),
-          children: [
-            // 1. Hero User Greeting Card
-            Container(
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  colors: isDark
-                      ? [
-                          theme.colorScheme.surfaceContainerHighest,
-                          theme.colorScheme.surface,
-                        ]
-                      : [
-                          theme.colorScheme.primaryContainer.withAlpha(200),
-                          theme.colorScheme.primaryContainer.withAlpha(70),
-                        ],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                ),
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(
-                  color: theme.colorScheme.outline.withAlpha(51),
-                ),
-              ),
-              padding: const EdgeInsets.all(18),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Stack(
-                        children: [
-                          CircleAvatar(
-                            radius: 26,
-                            backgroundColor: theme.colorScheme.primary,
-                            foregroundColor: Colors.white,
-                            child: Text(
-                              displayName.isNotEmpty
-                                  ? displayName[0].toUpperCase()
-                                  : 'U',
-                              style: const TextStyle(
-                                fontSize: 22,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                          ),
-                          PositionedDirectional(
-                            end: 0,
-                            bottom: 0,
-                            child: Container(
-                              width: 12,
-                              height: 12,
-                              decoration: BoxDecoration(
-                                color: Colors.green,
-                                shape: BoxShape.circle,
-                                border: Border.all(
-                                  color: theme.scaffoldBackgroundColor,
-                                  width: 2,
-                                ),
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(width: 14),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              '${_getTimeBasedGreeting()},',
-                              style: theme.textTheme.bodySmall?.copyWith(
-                                color: theme.colorScheme.onSurface.withAlpha(
-                                  179,
-                                ),
-                              ),
-                            ),
-                            Text(
-                              displayName,
-                              style: theme.textTheme.titleLarge?.copyWith(
-                                fontWeight: FontWeight.bold,
-                              ),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ],
-                        ),
-                      ),
-                      // Public ID Pill with copy
-                      InkWell(
-                        onTap: () {
-                          Clipboard.setData(ClipboardData(text: publicId));
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                              content: Text('Copied Public ID: $publicId'),
-                              duration: const Duration(seconds: 2),
-                              behavior: SnackBarBehavior.floating,
-                            ),
-                          );
-                        },
-                        borderRadius: BorderRadius.circular(20),
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 10,
-                            vertical: 6,
-                          ),
-                          decoration: BoxDecoration(
-                            color: theme.colorScheme.surface,
-                            borderRadius: BorderRadius.circular(20),
-                            boxShadow: [
-                              BoxShadow(
-                                color: Colors.black.withAlpha(15),
-                                blurRadius: 4,
-                                offset: const Offset(0, 2),
-                              ),
-                            ],
-                          ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Text(
-                                publicId,
-                                style: TextStyle(
-                                  fontFamily: 'monospace',
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.bold,
-                                  color: theme.colorScheme.primary,
-                                ),
-                              ),
-                              const SizedBox(width: 4),
-                              Icon(
-                                Icons.copy_rounded,
-                                size: 13,
-                                color: theme.colorScheme.primary,
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 16),
-
-                  // Quick Stats Row
-                  Row(
-                    children: [
-                      Expanded(
-                        child: _buildMetricTile(
-                          context,
-                          icon: Icons.chat_bubble_rounded,
-                          label: 'Messages',
-                          value: convsAsync.maybeWhen(
-                            data: (c) => '${c.length} Active',
-                            orElse: () => 'Live',
-                          ),
-                          onTap: () => context.go(RouteNames.chat),
-                        ),
-                      ),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: _buildMetricTile(
-                          context,
-                          icon: Icons.article_rounded,
-                          label: 'Blog Posts',
-                          value: blogAsync.maybeWhen(
-                            data: (b) => '${b.length} Published',
-                            orElse: () => 'Feed',
-                          ),
-                          onTap: () => context.go(RouteNames.blog),
-                        ),
-                      ),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: _buildMetricTile(
-                          context,
-                          icon: Icons.verified_user_rounded,
-                          label: 'Role',
-                          value: perms.contains('roles.manage')
-                              ? 'Admin'
-                              : 'Member',
-                          onTap: () => context.go(RouteNames.profile),
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 20),
-
-            // 2. Direct Messages / Users Vertical List (Requirement 2)
-            _buildUsersVerticalList(context, ref),
-            const SizedBox(height: 24),
-
-            // 3. Quick Action Buttons
-            Text(
-              'Quick Actions',
-              style: theme.textTheme.titleMedium?.copyWith(
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            const SizedBox(height: 10),
-            SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              child: Row(
-                children: [
-                  _buildActionChip(
-                    context,
-                    icon: Icons.chat_rounded,
-                    label: 'New Message',
-                    color: Colors.teal,
-                    onTap: () => context.push('/contacts/search'),
-                  ),
-                  const SizedBox(width: 8),
-                  if (canCreatePost) ...[
-                    _buildActionChip(
-                      context,
-                      icon: Icons.post_add_rounded,
-                      label: 'Create Post',
-                      color: Colors.blue,
-                      onTap: () => context.push('/blog/create'),
-                    ),
-                    const SizedBox(width: 8),
-                    _buildActionChip(
-                      context,
-                      icon: Icons.drafts_outlined,
-                      label: 'My Drafts',
-                      color: Colors.deepOrange,
-                      onTap: () => context.push('/blog/drafts'),
-                    ),
-                    const SizedBox(width: 8),
-                  ],
-                  _buildActionChip(
-                    context,
-                    icon: Icons.contact_phone_rounded,
-                    label: 'Sync Contacts',
-                    color: Colors.indigo,
-                    onTap: () => context.go(RouteNames.contacts),
-                  ),
-                  const SizedBox(width: 8),
-                  _buildActionChip(
-                    context,
-                    icon: Icons.person_rounded,
-                    label: 'Edit Profile',
-                    color: Colors.purple,
-                    onTap: () => context.push('/profile/edit'),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 24),
-
-            // 3. Recent Chats Section
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Row(
-                  children: [
-                    Icon(
-                      Icons.chat_bubble_outline_rounded,
-                      size: 20,
-                      color: theme.colorScheme.primary,
-                    ),
-                    const SizedBox(width: 8),
-                    Text(
-                      'Recent Chats',
-                      style: theme.textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ],
-                ),
-                TextButton(
-                  onPressed: () => context.go(RouteNames.chat),
-                  child: const Text('View All'),
-                ),
-              ],
-            ),
-            convsAsync.when(
-              loading: () => const Center(
-                child: Padding(
-                  padding: EdgeInsets.all(16.0),
-                  child: CircularProgressIndicator(),
-                ),
-              ),
-              error: (err, stack) => const SizedBox.shrink(),
-              data: (convs) {
-                if (convs.isEmpty) {
-                  return Card(
-                    child: Padding(
-                      padding: const EdgeInsets.all(20.0),
-                      child: Column(
-                        children: [
-                          const Icon(
-                            Icons.forum_outlined,
-                            size: 36,
-                            color: Colors.grey,
-                          ),
-                          const SizedBox(height: 8),
-                          Text(
-                            'No conversations yet',
-                            style: theme.textTheme.titleSmall,
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            'Find a friend by Public ID or phone number to chat.',
-                            style: theme.textTheme.bodySmall,
-                            textAlign: TextAlign.center,
-                          ),
-                          const SizedBox(height: 12),
-                          ElevatedButton.icon(
-                            onPressed: () => context.push('/contacts/search'),
-                            icon: const Icon(Icons.search, size: 16),
-                            label: const Text('Find People'),
-                          ),
-                        ],
-                      ),
-                    ),
-                  );
-                }
-
-                final previewList = convs.take(3).toList();
-                return Card(
-                  child: ListView.separated(
-                    shrinkWrap: true,
-                    physics: const NeverScrollableScrollPhysics(),
-                    itemCount: previewList.length,
-                    separatorBuilder: (context, index) =>
-                        const Divider(height: 1),
-                    itemBuilder: (context, index) {
-                      final c = previewList[index];
-                      final time = c.lastMessageAt != null
-                          ? DateFormat.jm().format(c.lastMessageAt!)
-                          : '';
-
-                      return ListTile(
-                        leading: CircleAvatar(
-                          backgroundColor: theme.colorScheme.primaryContainer,
-                          child: Icon(
-                            c.type == 'community'
-                                ? Icons.hub_rounded
-                                : (c.type == 'group'
-                                      ? Icons.group_rounded
-                                      : Icons.person_rounded),
-                            color: theme.colorScheme.primary,
-                            size: 20,
-                          ),
-                        ),
-                        title: Text(
-                          c.title,
-                          style: const TextStyle(fontWeight: FontWeight.w600),
-                        ),
-                        subtitle: Text(
-                          c.lastMessageText ?? 'No messages yet',
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                        trailing: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          crossAxisAlignment: CrossAxisAlignment.end,
-                          children: [
-                            Text(time, style: theme.textTheme.bodySmall),
-                            if (c.unreadCount > 0)
-                              Badge.count(count: c.unreadCount),
-                          ],
-                        ),
-                        onTap: () => context.push('/chat/${c.id}'),
-                      );
-                    },
-                  ),
-                );
-              },
-            ),
-            const SizedBox(height: 24),
-
-            // 4. Latest From Blog Section
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Row(
-                  children: [
-                    Icon(
-                      Icons.article_outlined,
-                      size: 20,
-                      color: theme.colorScheme.primary,
-                    ),
-                    const SizedBox(width: 8),
-                    Text(
-                      'Latest Posts',
-                      style: theme.textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ],
-                ),
-                TextButton(
-                  onPressed: () => context.go(RouteNames.blog),
-                  child: const Text('View All'),
-                ),
-              ],
-            ),
-            blogAsync.when(
-              loading: () => const Center(
-                child: Padding(
-                  padding: EdgeInsets.all(16.0),
-                  child: CircularProgressIndicator(),
-                ),
-              ),
-              error: (err, stack) => const SizedBox.shrink(),
-              data: (posts) {
-                if (posts.isEmpty) {
-                  return Card(
-                    child: Padding(
-                      padding: const EdgeInsets.all(20.0),
-                      child: Column(
-                        children: [
-                          const Icon(
-                            Icons.newspaper_outlined,
-                            size: 36,
-                            color: Colors.grey,
-                          ),
-                          const SizedBox(height: 8),
-                          Text(
-                            'No published posts yet',
-                            style: theme.textTheme.titleSmall,
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            'Articles, news and podcasts will appear here once published.',
-                            style: theme.textTheme.bodySmall,
-                            textAlign: TextAlign.center,
-                          ),
-                        ],
-                      ),
-                    ),
-                  );
-                }
-
-                final previewPosts = posts.take(3).toList();
-                return Column(
-                  children: previewPosts.map((post) {
-                    final dateStr = post.publishedAt != null
-                        ? DateFormat.yMMMd().format(post.publishedAt!)
-                        : '';
-
-                    return Card(
-                      margin: const EdgeInsets.only(bottom: 12),
-                      clipBehavior: Clip.antiAlias,
-                      child: InkWell(
-                        onTap: () => context.push('/blog/${post.id}'),
-                        child: Row(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            if (post.coverUrl != null &&
-                                post.coverUrl!.isNotEmpty)
-                              CachedNetworkImage(
-                                imageUrl: post.coverUrl!,
-                                width: 100,
-                                height: 100,
-                                fit: BoxFit.cover,
-                                errorWidget: (context, url, error) => Container(
-                                  width: 100,
-                                  height: 100,
-                                  color:
-                                      theme.colorScheme.surfaceContainerHighest,
-                                  child: const Icon(Icons.image_not_supported),
-                                ),
-                              )
-                            else
-                              Container(
-                                width: 100,
-                                height: 100,
-                                color: theme.colorScheme.primaryContainer,
-                                child: Icon(
-                                  post.type == 'audio'
-                                      ? Icons.podcasts_rounded
-                                      : Icons.article_rounded,
-                                  color: theme.colorScheme.primary,
-                                  size: 36,
-                                ),
-                              ),
-                            Expanded(
-                              child: Padding(
-                                padding: const EdgeInsets.all(12.0),
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Row(
-                                      children: [
-                                        Container(
-                                          padding: const EdgeInsets.symmetric(
-                                            horizontal: 6,
-                                            vertical: 2,
-                                          ),
-                                          decoration: BoxDecoration(
-                                            color: theme
-                                                .colorScheme
-                                                .primaryContainer,
-                                            borderRadius: BorderRadius.circular(
-                                              4,
-                                            ),
-                                          ),
-                                          child: Text(
-                                            post.type.toUpperCase(),
-                                            style: TextStyle(
-                                              fontSize: 9,
-                                              fontWeight: FontWeight.bold,
-                                              color: theme.colorScheme.primary,
-                                            ),
-                                          ),
-                                        ),
-                                        const Spacer(),
-                                        Text(
-                                          dateStr,
-                                          style: theme.textTheme.bodySmall
-                                              ?.copyWith(fontSize: 10),
-                                        ),
-                                      ],
-                                    ),
-                                    const SizedBox(height: 6),
-                                    Text(
-                                      post.title,
-                                      style: theme.textTheme.titleSmall
-                                          ?.copyWith(
-                                            fontWeight: FontWeight.bold,
-                                          ),
-                                      maxLines: 2,
-                                      overflow: TextOverflow.ellipsis,
-                                    ),
-                                    const SizedBox(height: 6),
-                                    Row(
-                                      children: [
-                                        Icon(
-                                          post.isLikedByMe
-                                              ? Icons.favorite
-                                              : Icons.favorite_border,
-                                          size: 14,
-                                          color: post.isLikedByMe
-                                              ? Colors.red
-                                              : null,
-                                        ),
-                                        const SizedBox(width: 4),
-                                        Text(
-                                          '${post.likesCount}',
-                                          style: const TextStyle(fontSize: 11),
-                                        ),
-                                        const SizedBox(width: 12),
-                                        const Icon(
-                                          Icons.mode_comment_outlined,
-                                          size: 14,
-                                        ),
-                                        const SizedBox(width: 4),
-                                        Text(
-                                          '${post.commentsCount}',
-                                          style: const TextStyle(fontSize: 11),
-                                        ),
-                                      ],
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    );
-                  }).toList(),
-                );
-              },
-            ),
-          ],
-        ),
       ),
     );
   }
 
-  Widget _buildMetricTile(
-    BuildContext context, {
-    required IconData icon,
-    required String label,
-    required String value,
-    required VoidCallback onTap,
-  }) {
-    final theme = Theme.of(context);
-
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(10),
-      child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 8),
-        decoration: BoxDecoration(
-          color: theme.colorScheme.surface,
-          borderRadius: BorderRadius.circular(10),
-        ),
-        child: Column(
-          children: [
-            Icon(icon, size: 20, color: theme.colorScheme.primary),
-            const SizedBox(height: 4),
-            Text(
-              value,
-              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-            ),
-            Text(
-              label,
-              style: theme.textTheme.bodySmall?.copyWith(fontSize: 10),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildActionChip(
-    BuildContext context, {
-    required IconData icon,
-    required String label,
-    required Color color,
-    required VoidCallback onTap,
-  }) {
-    return ActionChip(
-      avatar: CircleAvatar(
-        backgroundColor: color.withAlpha(40),
-        child: Icon(icon, size: 14, color: color),
-      ),
-      label: Text(label),
-      onPressed: onTap,
-    );
-  }
-
-  Widget _buildUsersVerticalList(BuildContext context, WidgetRef ref) {
-    final usersAsync = ref.watch(allUsersProvider);
-    final theme = Theme.of(context);
-
+  // ---------------------------------------------------------------------------
+  // MAIN FEED SECTION (Hero Banner, Stats Cards, Community Cards)
+  // ---------------------------------------------------------------------------
+  Widget _buildMainFeedSection(
+    BuildContext context,
+    BlogPost featuredPost,
+    List<BlogPost> allPosts,
+    int savedCount,
+  ) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Row(
+        // 1. Top Hero Featured Banner (Forest Green with decorative circular accents)
+        _buildHeroBanner(context, featuredPost),
+        const SizedBox(height: 20),
+
+        // 2. Stats Row (3 Cards: Saved Posts, Posts Liked, Unread Replies)
+        _buildStatsCardsRow(
+          context,
+          savedCount: savedCount > 0 ? savedCount : 12,
+        ),
+        const SizedBox(height: 24),
+
+        // 3. "Latest from the community" Section Header & Filter Pills
+        _buildCommunityHeader(context),
+        const SizedBox(height: 16),
+
+        // 4. Community Cards (Article, Audio, Gallery)
+        _buildCommunityCardsRow(context, allPosts),
+      ],
+    );
+  }
+
+  // Hero Featured Banner (Matches design.html)
+  Widget _buildHeroBanner(BuildContext context, BlogPost post) {
+    return Container(
+      height: 210,
+      width: double.infinity,
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          colors: [
+            Color(0xFF0B3B32), // Deep Emerald
+            Color(0xFF0F5445), // Forest Accent
+          ],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(24),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFF0B3B32).withOpacity(0.18),
+            blurRadius: 16,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Stack(
+        children: [
+          // Decorative circular glow shapes (matching design.html)
+          Positioned(
+            right: -30,
+            top: -20,
+            child: Container(
+              width: 190,
+              height: 190,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: const Color(0xFF137562).withOpacity(0.35),
+              ),
+            ),
+          ),
+          Positioned(
+            right: 50,
+            bottom: -40,
+            child: Container(
+              width: 140,
+              height: 140,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: const Color(0xFF082822).withOpacity(0.4),
+              ),
+            ),
+          ),
+
+          // Content
+          Padding(
+            padding: const EdgeInsets.symmetric(
+              horizontal: 26.0,
+              vertical: 22.0,
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Icon(
-                  Icons.people_alt_rounded,
-                  size: 20,
-                  color: theme.colorScheme.primary,
-                ),
-                const SizedBox(width: 8),
+                // Reading Time Tag
                 Text(
-                  'Community Members',
-                  style: theme.textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.bold,
+                  '${post.readingTimeMinutes > 0 ? post.readingTimeMinutes : 6} min read',
+                  style: const TextStyle(
+                    color: Color(0xFFA3C6B9),
+                    fontSize: 12.5,
+                    fontWeight: FontWeight.w600,
                   ),
+                ),
+                const SizedBox(height: 10),
+
+                // Featured Post Title
+                Text(
+                  post.title,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 22,
+                    fontWeight: FontWeight.w900,
+                    height: 1.25,
+                  ),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                const SizedBox(height: 18),
+
+                // Action Buttons: "Read article" & "Save"
+                Row(
+                  children: [
+                    ElevatedButton(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppColors.accentAmber,
+                        foregroundColor: const Color(0xFF1E1E1E),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 22,
+                          vertical: 12,
+                        ),
+                        elevation: 0,
+                      ),
+                      onPressed: () => context.push('/blog/${post.id}'),
+                      child: const Text(
+                        'Read article',
+                        style: TextStyle(
+                          fontWeight: FontWeight.w800,
+                          fontSize: 13.5,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    OutlinedButton.icon(
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: Colors.white,
+                        side: BorderSide(
+                          color: Colors.white.withOpacity(0.35),
+                          width: 1.2,
+                        ),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 18,
+                          vertical: 12,
+                        ),
+                      ),
+                      icon: const Icon(Icons.bookmark_border_rounded, size: 16),
+                      label: const Text(
+                        'Save',
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 13.5,
+                        ),
+                      ),
+                      onPressed: () async {
+                        await ref
+                            .read(blogRepositoryProvider)
+                            .toggleBookmark(post.id, post.isBookmarkedByMe);
+                        ref.invalidate(myBookmarksProvider);
+                        if (context.mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text('Article saved to your bookmarks!'),
+                            ),
+                          );
+                        }
+                      },
+                    ),
+                  ],
                 ),
               ],
             ),
-            IconButton(
-              icon: const Icon(Icons.refresh_rounded, size: 20),
-              tooltip: 'Refresh users',
-              onPressed: () => ref.invalidate(allUsersProvider),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // 3 Stats Cards (Matches design.html)
+  Widget _buildStatsCardsRow(BuildContext context, {required int savedCount}) {
+    return Row(
+      children: [
+        // 1. Saved posts
+        Expanded(
+          child: _buildStatCard(
+            context,
+            icon: Icons.bookmark_border_rounded,
+            iconBg: AppColors.mintContainer,
+            iconColor: AppColors.primary,
+            count: '$savedCount',
+            label: 'Saved posts',
+            onTap: () => context.push('/blog/bookmarks'),
+          ),
+        ),
+        const SizedBox(width: 12),
+
+        // 2. Posts you liked
+        Expanded(
+          child: _buildStatCard(
+            context,
+            icon: Icons.favorite_border_rounded,
+            iconBg: AppColors.accentAmberContainer,
+            iconColor: const Color(0xFFD6981C),
+            count: '48',
+            label: 'Posts you liked',
+            onTap: () => context.go(RouteNames.blog),
+          ),
+        ),
+        const SizedBox(width: 12),
+
+        // 3. Unread replies
+        Expanded(
+          child: _buildStatCard(
+            context,
+            icon: Icons.chat_bubble_outline_rounded,
+            iconBg: AppColors.coralContainer,
+            iconColor: const Color(0xFFE05345),
+            count: '5',
+            label: 'Unread replies',
+            onTap: () => context.go(RouteNames.chat),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildStatCard(
+    BuildContext context, {
+    required IconData icon,
+    required Color iconBg,
+    required Color iconColor,
+    required String count,
+    required String label,
+    required VoidCallback onTap,
+  }) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(18),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(18),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.04),
+              blurRadius: 10,
+              offset: const Offset(0, 2),
             ),
           ],
         ),
-        const SizedBox(height: 2),
-        Text(
-          'Select any user below to start a private 1-on-1 chat:',
-          style: theme.textTheme.bodySmall?.copyWith(
-            color: theme.colorScheme.onSurfaceVariant,
-          ),
-        ),
-        const SizedBox(height: 10),
-        usersAsync.when(
-          loading: () => const Center(
-            child: Padding(
-              padding: EdgeInsets.all(16.0),
-              child: CircularProgressIndicator(),
+        child: Row(
+          children: [
+            Container(
+              width: 40,
+              height: 40,
+              decoration: BoxDecoration(
+                color: iconBg,
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Icon(icon, color: iconColor, size: 20),
             ),
-          ),
-          error: (err, _) => Card(
-            child: Padding(
-              padding: const EdgeInsets.all(16.0),
-              child: Row(
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
                 children: [
-                  const Icon(Icons.info_outline, color: Colors.amber),
-                  const SizedBox(width: 12),
-                  const Expanded(
-                    child: Text('Unable to load users list at the moment.'),
+                  Text(
+                    count,
+                    style: const TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.w900,
+                      color: Color(0xFF0F2620),
+                    ),
                   ),
-                  IconButton(
-                    icon: const Icon(Icons.refresh),
-                    onPressed: () => ref.invalidate(allUsersProvider),
+                  const SizedBox(height: 1),
+                  Text(
+                    label,
+                    style: const TextStyle(
+                      fontSize: 12,
+                      color: Color(0xFF6B8A7E),
+                      fontWeight: FontWeight.w500,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                   ),
                 ],
               ),
             ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // Community Section Header & Category Filter Pills
+  Widget _buildCommunityHeader(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          'Latest from the community',
+          style: TextStyle(
+            fontSize: 18,
+            fontWeight: FontWeight.w900,
+            color: Color(0xFF0F2620),
           ),
-          data: (users) {
-            if (users.isEmpty) {
-              return Card(
-                elevation: 0,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  side: BorderSide(color: theme.colorScheme.outlineVariant),
+        ),
+        const SizedBox(height: 12),
+        SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          child: Row(
+            children: _categories.map((cat) {
+              final isSelected = _selectedCategory == cat;
+              return Padding(
+                padding: const EdgeInsets.only(right: 8.0),
+                child: ChoiceChip(
+                  label: Text(
+                    cat,
+                    style: TextStyle(
+                      color: isSelected
+                          ? Colors.white
+                          : const Color(0xFF0F2620),
+                      fontWeight: isSelected
+                          ? FontWeight.bold
+                          : FontWeight.w500,
+                      fontSize: 13,
+                    ),
+                  ),
+                  selected: isSelected,
+                  selectedColor: const Color(0xFF0B3B32),
+                  backgroundColor: Colors.white,
+                  showCheckmark: false,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(20),
+                    side: BorderSide(
+                      color: isSelected
+                          ? const Color(0xFF0B3B32)
+                          : Colors.transparent,
+                    ),
+                  ),
+                  onSelected: (val) {
+                    if (val) setState(() => _selectedCategory = cat);
+                  },
                 ),
-                child: const Padding(
-                  padding: EdgeInsets.all(16.0),
-                  child: Row(
+              );
+            }).toList(),
+          ),
+        ),
+      ],
+    );
+  }
+
+  // Community Content Cards (Article, Audio, Gallery)
+  Widget _buildCommunityCardsRow(BuildContext context, List<BlogPost> posts) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final cardWidth = constraints.maxWidth >= 600
+            ? (constraints.maxWidth - 24) / 3
+            : 260.0;
+
+        return SingleChildScrollView(
+          scrollDirection: constraints.maxWidth >= 600
+              ? Axis.vertical
+              : Axis.horizontal,
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Card 1: Article
+              SizedBox(
+                width: cardWidth,
+                child: _buildCommunityCard(
+                  context,
+                  badge: 'Article',
+                  badgeColor: Colors.white,
+                  badgeTextColor: AppColors.primary,
+                  boxColor: AppColors.mintContainer,
+                  centerWidget: const Icon(
+                    Icons.menu_book_rounded,
+                    size: 38,
+                    color: AppColors.primary,
+                  ),
+                  title: 'Seven signs your goats need a vet this week',
+                  author: 'Dr. Bilal Ahmed',
+                  onTap: () => context.go(RouteNames.blog),
+                ),
+              ),
+              const SizedBox(width: 12),
+
+              // Card 2: Audio
+              SizedBox(
+                width: cardWidth,
+                child: _buildCommunityCard(
+                  context,
+                  badge: 'Audio',
+                  badgeColor: Colors.white,
+                  badgeTextColor: const Color(0xFFB88014),
+                  boxColor: AppColors.accentAmberContainer,
+                  centerWidget: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Icon(Icons.person_outline, color: Colors.grey),
-                      SizedBox(width: 12),
-                      Expanded(
-                        child: Text(
-                          'No other users registered yet. Invite friends to start chatting!',
-                          style: TextStyle(fontSize: 13),
+                      Container(
+                        width: 38,
+                        height: 38,
+                        decoration: const BoxDecoration(
+                          color: AppColors.primary,
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(
+                          Icons.play_arrow_rounded,
+                          color: Colors.white,
+                          size: 24,
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Row(
+                        children: List.generate(
+                          10,
+                          (i) => Container(
+                            width: 3,
+                            height: (i % 3 + 1) * 9.0 + 8,
+                            margin: const EdgeInsets.symmetric(horizontal: 1.5),
+                            decoration: BoxDecoration(
+                              color: AppColors.primary,
+                              borderRadius: BorderRadius.circular(2),
+                            ),
+                          ),
                         ),
                       ),
                     ],
                   ),
+                  title: 'Starting a small shop: a 12 minute conversation',
+                  author: 'Hana Tadesse',
+                  onTap: () => context.go(RouteNames.blog),
                 ),
-              );
-            }
+              ),
+              const SizedBox(width: 12),
 
-            return ListView.separated(
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              itemCount: users.length,
-              separatorBuilder: (context, index) => const SizedBox(height: 6),
-              itemBuilder: (context, index) {
-                final user = users[index];
-                return Card(
-                  elevation: 0,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    side: BorderSide(color: theme.colorScheme.outlineVariant),
+              // Card 3: Gallery
+              SizedBox(
+                width: cardWidth,
+                child: _buildCommunityCard(
+                  context,
+                  badge: 'Gallery',
+                  badgeColor: Colors.white,
+                  badgeTextColor: AppColors.primary,
+                  boxColor: const Color(0xFFE3EFEA),
+                  centerWidget: const Icon(
+                    Icons.collections_outlined,
+                    size: 38,
+                    color: AppColors.primary,
                   ),
-                  child: ListTile(
-                    contentPadding: const EdgeInsets.symmetric(
-                      horizontal: 14,
-                      vertical: 2,
+                  title: 'Clean water project: before and after in Dire Dawa',
+                  author: 'Community Team',
+                  onTap: () => context.go(RouteNames.blog),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildCommunityCard(
+    BuildContext context, {
+    required String badge,
+    required Color badgeColor,
+    required Color badgeTextColor,
+    required Color boxColor,
+    required Widget centerWidget,
+    required String title,
+    required String author,
+    required VoidCallback onTap,
+  }) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(20),
+      child: Container(
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(20),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.04),
+              blurRadius: 10,
+              offset: const Offset(0, 2),
+            ),
+          ],
+        ),
+        padding: const EdgeInsets.all(12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Top Preview Container
+            Container(
+              height: 120,
+              width: double.infinity,
+              decoration: BoxDecoration(
+                color: boxColor,
+                borderRadius: BorderRadius.circular(16),
+              ),
+              padding: const EdgeInsets.all(10),
+              child: Stack(
+                children: [
+                  // Badge (Article / Audio / Gallery)
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 4,
                     ),
-                    leading: CircleAvatar(
-                      radius: 20,
-                      backgroundColor: theme.colorScheme.primaryContainer,
-                      foregroundColor: theme.colorScheme.primary,
-                      child: Text(
-                        user.displayName.isNotEmpty
-                            ? user.displayName[0].toUpperCase()
-                            : 'U',
-                        style: const TextStyle(fontWeight: FontWeight.bold),
+                    decoration: BoxDecoration(
+                      color: badgeColor,
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Text(
+                      badge,
+                      style: TextStyle(
+                        fontSize: 10.5,
+                        fontWeight: FontWeight.bold,
+                        color: badgeTextColor,
                       ),
                     ),
-                    title: Row(
+                  ),
+                  // Center Icon or Waveform
+                  Center(child: centerWidget),
+                ],
+              ),
+            ),
+            const SizedBox(height: 12),
+
+            // Card Title
+            Text(
+              title,
+              style: const TextStyle(
+                fontWeight: FontWeight.bold,
+                fontSize: 14.5,
+                color: Color(0xFF0F2620),
+                height: 1.3,
+              ),
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+            ),
+            const SizedBox(height: 6),
+
+            // Author
+            Text(
+              author,
+              style: const TextStyle(
+                fontSize: 12,
+                color: Color(0xFF6B8A7E),
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // ---------------------------------------------------------------------------
+  // RIGHT MESSAGES & STORIES QUICK CHAT PANEL (Matches design.html)
+  // ---------------------------------------------------------------------------
+  Widget _buildRightMessagesPanel(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(24),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 16,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      padding: const EdgeInsets.all(18),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // 1. Header: "Messages" & Search Icon
+          Row(
+            children: [
+              const Text(
+                'Messages',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w900,
+                  color: Color(0xFF0F2620),
+                ),
+              ),
+              const Spacer(),
+              InkWell(
+                onTap: () => context.go(RouteNames.chat),
+                borderRadius: BorderRadius.circular(20),
+                child: Container(
+                  width: 34,
+                  height: 34,
+                  decoration: const BoxDecoration(
+                    color: AppColors.lightBackground,
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(
+                    Icons.search,
+                    size: 18,
+                    color: Color(0xFF0F2620),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+
+          // 2. Horizontal Story / Online Contacts
+          SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Row(
+              children: [
+                _buildContactStory(
+                  initials: 'AH',
+                  name: 'Amina',
+                  bgColor: const Color(0xFFC5E0D5),
+                  isOnline: true,
+                ),
+                const SizedBox(width: 14),
+                _buildContactStory(
+                  initials: 'BA',
+                  name: 'Bilal',
+                  bgColor: const Color(0xFFFCE2A6),
+                  isOnline: true,
+                ),
+                const SizedBox(width: 14),
+                _buildContactStory(
+                  initials: 'HT',
+                  name: 'Hana',
+                  bgColor: const Color(0xFFFAD5D0),
+                  isOnline: false,
+                ),
+                const SizedBox(width: 14),
+                _buildContactStory(
+                  initials: 'YM',
+                  name: 'Yusuf',
+                  bgColor: const Color(0xFFDFDBF5),
+                  isOnline: true,
+                ),
+                const SizedBox(width: 14),
+                _buildContactStory(
+                  initials: 'SK',
+                  name: 'Sara',
+                  bgColor: const Color(0xFFC5E5E2),
+                  isOnline: false,
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 18),
+
+          // 3. Active Chat Header (Amina Hassen - Online now)
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            decoration: BoxDecoration(
+              color: AppColors.mintContainer,
+              borderRadius: BorderRadius.circular(14),
+            ),
+            child: const Row(
+              children: [
+                CircleAvatar(
+                  radius: 17,
+                  backgroundColor: Color(0xFFB4D8CA),
+                  child: Text(
+                    'AH',
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.bold,
+                      color: Color(0xFF0B3B32),
+                    ),
+                  ),
+                ),
+                SizedBox(width: 10),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Amina Hassen',
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 13.5,
+                        color: Color(0xFF0B3B32),
+                      ),
+                    ),
+                    Row(
                       children: [
-                        Flexible(
-                          child: Text(
-                            user.displayName,
-                            style: const TextStyle(
-                              fontWeight: FontWeight.bold,
-                              fontSize: 15,
-                            ),
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 6,
-                            vertical: 2,
-                          ),
-                          decoration: BoxDecoration(
-                            color: theme.colorScheme.secondaryContainer
-                                .withAlpha(128),
-                            borderRadius: BorderRadius.circular(6),
-                          ),
-                          child: Text(
-                            user.publicId,
-                            style: TextStyle(
-                              fontFamily: 'monospace',
-                              fontSize: 10,
-                              fontWeight: FontWeight.bold,
-                              color: theme.colorScheme.onSecondaryContainer,
-                            ),
+                        Text(
+                          'Online now',
+                          style: TextStyle(
+                            fontSize: 11,
+                            color: Color(0xFF0B7D64),
+                            fontWeight: FontWeight.w600,
                           ),
                         ),
                       ],
                     ),
-                    subtitle: Text(
-                      user.about != null && user.about!.isNotEmpty
-                          ? user.about!
-                          : (user.phoneE164 ?? 'Tap to chat privately'),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: theme.colorScheme.onSurfaceVariant,
-                      ),
-                    ),
-                    trailing: FilledButton.tonalIcon(
-                      style: FilledButton.styleFrom(
-                        visualDensity: VisualDensity.compact,
-                        padding: const EdgeInsets.symmetric(horizontal: 12),
-                      ),
-                      icon: const Icon(
-                        Icons.chat_bubble_outline_rounded,
-                        size: 15,
-                      ),
-                      label: const Text('Chat'),
-                      onPressed: () async {
-                        final convId = await ref
-                            .read(chatRepositoryProvider)
-                            .startDirectChat(user.id);
-                        if (convId != null && context.mounted) {
-                          unawaited(context.push('/chat/$convId'));
-                        }
-                      },
-                    ),
-                    onTap: () async {
-                      final convId = await ref
-                          .read(chatRepositoryProvider)
-                          .startDirectChat(user.id);
-                      if (convId != null && context.mounted) {
-                        unawaited(context.push('/chat/$convId'));
-                      }
-                    },
+                  ],
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 16),
+
+          // 4. Chat Messages Thread Preview
+          Center(
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
+              decoration: BoxDecoration(
+                color: const Color(0xFFE2EBE6),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: const Text(
+                'Today',
+                style: TextStyle(fontSize: 10.5, color: Color(0xFF6B8A7E)),
+              ),
+            ),
+          ),
+          const SizedBox(height: 12),
+
+          // Inbound Message (White bubble)
+          Align(
+            alignment: Alignment.centerLeft,
+            child: Container(
+              constraints: const BoxConstraints(maxWidth: 240),
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+              decoration: BoxDecoration(
+                color: const Color(0xFFF6F8F7),
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: const Color(0xFFE2EBE6)),
+              ),
+              child: const Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Did you read my irrigation article yet?',
+                    style: TextStyle(fontSize: 13, color: Color(0xFF0F2620)),
                   ),
-                );
-              },
-            );
-          },
-        ),
-      ],
+                  SizedBox(height: 4),
+                  Text(
+                    '2:41 PM',
+                    style: TextStyle(fontSize: 9.5, color: Color(0xFF8BA097)),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 10),
+
+          // Outbound Message (Deep Forest Green bubble)
+          Align(
+            alignment: Alignment.centerRight,
+            child: Container(
+              constraints: const BoxConstraints(maxWidth: 240),
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+              decoration: BoxDecoration(
+                color: AppColors.primary,
+                borderRadius: BorderRadius.circular(16),
+              ),
+              child: const Column(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  Text(
+                    'Yes, the cost table is very useful. Sharing it with the farmers\' group.',
+                    style: TextStyle(fontSize: 13, color: Colors.white),
+                  ),
+                  SizedBox(height: 4),
+                  Text(
+                    '2:43 PM',
+                    style: TextStyle(fontSize: 9.5, color: Color(0xFFA3C6B9)),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 20),
+
+          // 5. Bottom Message Input Bar
+          Row(
+            children: [
+              IconButton(
+                visualDensity: VisualDensity.compact,
+                icon: const Icon(
+                  Icons.attach_file_rounded,
+                  color: Color(0xFF6B8A7E),
+                  size: 20,
+                ),
+                onPressed: () {},
+              ),
+              Expanded(
+                child: Container(
+                  height: 40,
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF3F7F5),
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(color: const Color(0xFFDEE7E3)),
+                  ),
+                  padding: const EdgeInsets.symmetric(horizontal: 14),
+                  child: TextField(
+                    controller: _quickChatController,
+                    decoration: const InputDecoration(
+                      hintText: 'Write a message...',
+                      hintStyle: TextStyle(
+                        fontSize: 12.5,
+                        color: Color(0xFF8BA097),
+                      ),
+                      border: InputBorder.none,
+                      enabledBorder: InputBorder.none,
+                      focusedBorder: InputBorder.none,
+                      contentPadding: EdgeInsets.only(bottom: 10),
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Container(
+                width: 38,
+                height: 38,
+                decoration: const BoxDecoration(
+                  color: AppColors.accentAmber,
+                  shape: BoxShape.circle,
+                ),
+                child: IconButton(
+                  padding: EdgeInsets.zero,
+                  icon: const Icon(
+                    Icons.send_rounded,
+                    color: Colors.black,
+                    size: 18,
+                  ),
+                  onPressed: () {
+                    _quickChatController.clear();
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('Message sent! Opening chat...'),
+                        duration: Duration(seconds: 1),
+                      ),
+                    );
+                    context.go(RouteNames.chat);
+                  },
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildContactStory({
+    required String initials,
+    required String name,
+    required Color bgColor,
+    required bool isOnline,
+  }) {
+    return InkWell(
+      onTap: () => context.go(RouteNames.chat),
+      borderRadius: BorderRadius.circular(24),
+      child: Column(
+        children: [
+          Stack(
+            children: [
+              CircleAvatar(
+                radius: 20,
+                backgroundColor: bgColor,
+                child: Text(
+                  initials,
+                  style: const TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 13,
+                    color: Color(0xFF0F2620),
+                  ),
+                ),
+              ),
+              if (isOnline)
+                Positioned(
+                  right: 0,
+                  bottom: 0,
+                  child: Container(
+                    width: 10,
+                    height: 10,
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF10B981),
+                      shape: BoxShape.circle,
+                      border: Border.all(color: Colors.white, width: 1.5),
+                    ),
+                  ),
+                ),
+            ],
+          ),
+          const SizedBox(height: 4),
+          Text(
+            name,
+            style: const TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.w600,
+              color: Color(0xFF6B8A7E),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
