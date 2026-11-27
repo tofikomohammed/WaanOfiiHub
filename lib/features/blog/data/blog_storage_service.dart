@@ -34,12 +34,17 @@ class BlogStorageService {
   final ImagePicker _picker;
 
   BlogStorageService(this._client, [ImagePicker? picker])
-      : _picker = picker ?? ImagePicker();
+    : _picker = picker ?? ImagePicker();
 
   static const int maxImageSizeBytes = 10 * 1024 * 1024; // 10 MB raw limit
   static const int maxAudioSizeBytes = 25 * 1024 * 1024; // 25 MB audio limit
 
-  static const List<String> allowedImageExtensions = ['jpg', 'jpeg', 'png', 'webp'];
+  static const List<String> allowedImageExtensions = [
+    'jpg',
+    'jpeg',
+    'png',
+    'webp',
+  ];
   static const List<String> allowedAudioExtensions = ['mp3', 'm4a', 'wav'];
 
   static const Map<String, String> imageMimeMap = {
@@ -68,7 +73,9 @@ class BlogStorageService {
     final sanitizedName = fileName.replaceAll(RegExp(r'[^a-zA-Z0-9._-]'), '_');
     final timestamp = DateTime.now().millisecondsSinceEpoch;
     final storagePath = '$authorId/${timestamp}_$sanitizedName';
-    await _client.storage.from('blog-media').uploadBinary(
+    await _client.storage
+        .from('blog-media')
+        .uploadBinary(
           storagePath,
           bytes,
           fileOptions: FileOptions(contentType: mimeType, upsert: true),
@@ -103,7 +110,10 @@ class BlogStorageService {
   }
 
   /// Compress and resize image bytes on client before upload
-  Future<Uint8List> compressImageBytes(Uint8List rawBytes, String format) async {
+  Future<Uint8List> compressImageBytes(
+    Uint8List rawBytes,
+    String format,
+  ) async {
     if (kIsWeb) {
       // On web, browser canvas already processed via ImagePicker maxWidth/maxHeight/quality
       return rawBytes;
@@ -173,31 +183,35 @@ class BlogStorageService {
 
       final mimeType = imageMimeMap[ext] ?? 'image/jpeg';
       final compressedBytes = await compressImageBytes(rawBytes, ext);
-      final sanitizedName =
-          img.name.replaceAll(RegExp(r'[^a-zA-Z0-9._-]'), '_');
+      final sanitizedName = img.name.replaceAll(
+        RegExp(r'[^a-zA-Z0-9._-]'),
+        '_',
+      );
       final timestamp = DateTime.now().millisecondsSinceEpoch;
       final storagePath = '$authorId/gallery/${timestamp}_$sanitizedName';
 
       onProgress?.call((i + 0.6) / images.length, 'Uploading ${img.name}...');
 
-      await _client.storage.from('blog-media').uploadBinary(
+      await _client.storage
+          .from('blog-media')
+          .uploadBinary(
             storagePath,
             compressedBytes,
-            fileOptions: FileOptions(
-              contentType: mimeType,
-              upsert: true,
-            ),
+            fileOptions: FileOptions(contentType: mimeType, upsert: true),
           );
 
-      final publicUrl =
-          _client.storage.from('blog-media').getPublicUrl(storagePath);
+      final publicUrl = _client.storage
+          .from('blog-media')
+          .getPublicUrl(storagePath);
 
       // Generate and upload thumbnail
       String? thumbUrl;
       try {
         final thumbBytes = await generateThumbnailBytes(compressedBytes);
         final thumbPath = '$authorId/thumbs/thumb_${timestamp}_$sanitizedName';
-        await _client.storage.from('blog-media').uploadBinary(
+        await _client.storage
+            .from('blog-media')
+            .uploadBinary(
               thumbPath,
               thumbBytes,
               fileOptions: const FileOptions(
@@ -253,24 +267,32 @@ class BlogStorageService {
     final storagePath = '$authorId/${timestamp}_$sanitizedName';
 
     onProgress?.call(0.6, 'Uploading cover image...');
-    await _client.storage.from('blog-media').uploadBinary(
+    await _client.storage
+        .from('blog-media')
+        .uploadBinary(
           storagePath,
           compressedBytes,
           fileOptions: FileOptions(contentType: mimeType, upsert: true),
         );
 
-    final publicUrl =
-        _client.storage.from('blog-media').getPublicUrl(storagePath);
+    final publicUrl = _client.storage
+        .from('blog-media')
+        .getPublicUrl(storagePath);
 
     // Thumbnail upload
     String? thumbUrl;
     try {
       final thumbBytes = await generateThumbnailBytes(compressedBytes);
       final thumbPath = '$authorId/thumbs/thumb_${timestamp}_$sanitizedName';
-      await _client.storage.from('blog-media').uploadBinary(
+      await _client.storage
+          .from('blog-media')
+          .uploadBinary(
             thumbPath,
             thumbBytes,
-            fileOptions: const FileOptions(contentType: 'image/jpeg', upsert: true),
+            fileOptions: const FileOptions(
+              contentType: 'image/jpeg',
+              upsert: true,
+            ),
           );
       thumbUrl = _client.storage.from('blog-media').getPublicUrl(thumbPath);
     } catch (_) {}
@@ -304,14 +326,17 @@ class BlogStorageService {
     final storagePath = '$authorId/audio/${timestamp}_$sanitizedName';
 
     onProgress?.call(0.4, 'Uploading audio file...');
-    await _client.storage.from('blog-media').uploadBinary(
+    await _client.storage
+        .from('blog-media')
+        .uploadBinary(
           storagePath,
           bytes,
           fileOptions: FileOptions(contentType: mimeType, upsert: true),
         );
 
-    final publicUrl =
-        _client.storage.from('blog-media').getPublicUrl(storagePath);
+    final publicUrl = _client.storage
+        .from('blog-media')
+        .getPublicUrl(storagePath);
 
     // Try inspecting duration with just_audio if possible
     int? durationSec;
@@ -346,7 +371,9 @@ class BlogStorageService {
   /// Admin: List all objects in blog-media bucket
   Future<List<FileObject>> listAllMediaFiles({String path = ''}) async {
     if (_client == null) return [];
-    final res = await _client.storage.from('blog-media').list(
+    final res = await _client.storage
+        .from('blog-media')
+        .list(
           path: path,
           searchOptions: const SearchOptions(
             limit: 100,
@@ -358,7 +385,8 @@ class BlogStorageService {
 }
 
 final blogStorageServiceProvider = Provider<BlogStorageService>((ref) {
-  final client =
-      isSupabaseInitialized ? ref.watch(supabaseClientProvider) : null;
+  final client = isSupabaseInitialized
+      ? ref.watch(supabaseClientProvider)
+      : null;
   return BlogStorageService(client);
 });

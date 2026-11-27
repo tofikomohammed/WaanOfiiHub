@@ -6,24 +6,27 @@ import 'package:waan_ofii_hub/features/blog/models/blog_tag.dart';
 
 void main() {
   group('BlogPost Reading Time & Tags Tests', () {
-    test('calculates reading time accurately based on 200 words per minute', () {
-      final shortPost = BlogPost(
-        id: '1',
-        authorId: 'u1',
-        type: 'text',
-        title: 'Short Update',
-        body: 'This is a brief announcement about our new platform release.',
-        status: 'published',
-        createdAt: DateTime.now(),
-      );
-      // Minimum 1 min
-      expect(shortPost.readingTimeMinutes, 1);
+    test(
+      'calculates reading time accurately based on 200 words per minute',
+      () {
+        final shortPost = BlogPost(
+          id: '1',
+          authorId: 'u1',
+          type: 'text',
+          title: 'Short Update',
+          body: 'This is a brief announcement about our new platform release.',
+          status: 'published',
+          createdAt: DateTime.now(),
+        );
+        // Minimum 1 min
+        expect(shortPost.readingTimeMinutes, 1);
 
-      // 450 words -> 3 min
-      final longBody = List.generate(450, (i) => 'word$i').join(' ');
-      final longPost = shortPost.copyWith(body: longBody);
-      expect(longPost.readingTimeMinutes, 3);
-    });
+        // 450 words -> 3 min
+        final longBody = List.generate(450, (i) => 'word$i').join(' ');
+        final longPost = shortPost.copyWith(body: longBody);
+        expect(longPost.readingTimeMinutes, 3);
+      },
+    );
 
     test('parses tags and custom likes/comments count from json', () {
       final json = {

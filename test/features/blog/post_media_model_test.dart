@@ -15,7 +15,10 @@ void main() {
         'sort_order': 2,
       };
 
-      final media = PostMedia.fromJson(json, supabaseUrl: 'https://xyz.supabase.co');
+      final media = PostMedia.fromJson(
+        json,
+        supabaseUrl: 'https://xyz.supabase.co',
+      );
 
       expect(media.id, 'med-101');
       expect(media.postId, 'post-555');
@@ -80,7 +83,10 @@ void main() {
         sortOrder: 0,
       );
 
-      final updated = media.copyWith(sortOrder: 3, publicUrl: 'https://new.com/img.jpg');
+      final updated = media.copyWith(
+        sortOrder: 3,
+        publicUrl: 'https://new.com/img.jpg',
+      );
       expect(updated.sortOrder, 3);
       expect(updated.publicUrl, 'https://new.com/img.jpg');
       expect(updated.id, 'med-1');

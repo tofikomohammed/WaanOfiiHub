@@ -11,8 +11,9 @@ import 'package:waan_ofii_hub/features/blog/presentation/widgets/post_card.dart'
 
 void main() {
   group('PostCard Discovery Features Test', () {
-    testWidgets('renders author, reading time and tag pills correctly',
-        (tester) async {
+    testWidgets('renders author, reading time and tag pills correctly', (
+      tester,
+    ) async {
       final post = BlogPost(
         id: 'post-1',
         authorId: 'auth-1',
@@ -31,9 +32,7 @@ void main() {
 
       await tester.pumpWidget(
         MaterialApp(
-          home: Scaffold(
-            body: PostCard(post: post),
-          ),
+          home: Scaffold(body: PostCard(post: post)),
         ),
       );
 
@@ -46,8 +45,9 @@ void main() {
   });
 
   group('CategoryTagPostsScreen Tests', () {
-    testWidgets('renders category topic header and empty state when empty',
-        (tester) async {
+    testWidgets('renders category topic header and empty state when empty', (
+      tester,
+    ) async {
       await tester.pumpWidget(
         ProviderScope(
           overrides: [
@@ -68,8 +68,9 @@ void main() {
   });
 
   group('AdminTaxonomiesScreen Tests', () {
-    testWidgets('renders Categories and Tags tabs and list items',
-        (tester) async {
+    testWidgets('renders Categories and Tags tabs and list items', (
+      tester,
+    ) async {
       final dummyCategories = [
         BlogCategory(
           id: '1',
@@ -95,9 +96,7 @@ void main() {
             categoriesListProvider.overrideWith((ref) async => dummyCategories),
             tagsListProvider.overrideWith((ref) async => dummyTags),
           ],
-          child: const MaterialApp(
-            home: AdminTaxonomiesScreen(),
-          ),
+          child: const MaterialApp(home: AdminTaxonomiesScreen()),
         ),
       );
 

@@ -46,7 +46,8 @@ class ChatListScreen extends ConsumerWidget {
         child: convsAsync.when(
           loading: () => const LoadingIndicator(message: 'Loading chats...'),
           error: (err, stack) {
-            final isMissingTable = err.toString().contains('PGRST205') ||
+            final isMissingTable =
+                err.toString().contains('PGRST205') ||
                 err.toString().contains('conversation_members') ||
                 err.toString().contains('conversations');
             return ErrorView(
@@ -65,7 +66,11 @@ class ChatListScreen extends ConsumerWidget {
                 if (convs.isNotEmpty) ...[
                   Row(
                     children: [
-                      Icon(Icons.forum_rounded, size: 18, color: theme.colorScheme.primary),
+                      Icon(
+                        Icons.forum_rounded,
+                        size: 18,
+                        color: theme.colorScheme.primary,
+                      ),
                       const SizedBox(width: 8),
                       Text(
                         'Recent Conversations',
@@ -85,7 +90,9 @@ class ChatListScreen extends ConsumerWidget {
                       margin: const EdgeInsets.only(bottom: 6),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(12),
-                        side: BorderSide(color: theme.colorScheme.outlineVariant),
+                        side: BorderSide(
+                          color: theme.colorScheme.outlineVariant,
+                        ),
                       ),
                       child: ListTile(
                         leading: CircleAvatar(
@@ -191,7 +198,9 @@ class ChatListScreen extends ConsumerWidget {
                         elevation: 0,
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(12),
-                          side: BorderSide(color: theme.colorScheme.outlineVariant),
+                          side: BorderSide(
+                            color: theme.colorScheme.outlineVariant,
+                          ),
                         ),
                         child: const Padding(
                           padding: EdgeInsets.all(16.0),
@@ -207,24 +216,30 @@ class ChatListScreen extends ConsumerWidget {
                       shrinkWrap: true,
                       physics: const NeverScrollableScrollPhysics(),
                       itemCount: users.length,
-                      separatorBuilder: (context, index) => const SizedBox(height: 6),
+                      separatorBuilder: (context, index) =>
+                          const SizedBox(height: 6),
                       itemBuilder: (context, index) {
                         final u = users[index];
                         return Card(
                           elevation: 0,
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(12),
-                            side: BorderSide(color: theme.colorScheme.outlineVariant),
+                            side: BorderSide(
+                              color: theme.colorScheme.outlineVariant,
+                            ),
                           ),
                           child: ListTile(
                             leading: CircleAvatar(
-                              backgroundColor: theme.colorScheme.primaryContainer,
+                              backgroundColor:
+                                  theme.colorScheme.primaryContainer,
                               foregroundColor: theme.colorScheme.primary,
                               child: Text(
                                 u.displayName.isNotEmpty
                                     ? u.displayName[0].toUpperCase()
                                     : 'U',
-                                style: const TextStyle(fontWeight: FontWeight.bold),
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                ),
                               ),
                             ),
                             title: Row(
@@ -246,7 +261,8 @@ class ChatListScreen extends ConsumerWidget {
                                     vertical: 2,
                                   ),
                                   decoration: BoxDecoration(
-                                    color: theme.colorScheme.secondaryContainer.withAlpha(128),
+                                    color: theme.colorScheme.secondaryContainer
+                                        .withAlpha(128),
                                     borderRadius: BorderRadius.circular(6),
                                   ),
                                   child: Text(
@@ -255,7 +271,9 @@ class ChatListScreen extends ConsumerWidget {
                                       fontFamily: 'monospace',
                                       fontSize: 10,
                                       fontWeight: FontWeight.bold,
-                                      color: theme.colorScheme.onSecondaryContainer,
+                                      color: theme
+                                          .colorScheme
+                                          .onSecondaryContainer,
                                     ),
                                   ),
                                 ),
@@ -275,7 +293,9 @@ class ChatListScreen extends ConsumerWidget {
                             trailing: FilledButton.tonalIcon(
                               style: FilledButton.styleFrom(
                                 visualDensity: VisualDensity.compact,
-                                padding: const EdgeInsets.symmetric(horizontal: 12),
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 12,
+                                ),
                               ),
                               icon: const Icon(
                                 Icons.chat_bubble_outline_rounded,

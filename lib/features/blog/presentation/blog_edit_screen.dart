@@ -69,7 +69,9 @@ class _BlogEditScreenState extends ConsumerState<BlogEditScreen> {
     if (combined.isBefore(DateTime.now())) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Scheduled time must be in the future.')),
+          const SnackBar(
+            content: Text('Scheduled time must be in the future.'),
+          ),
         );
       }
       return;
@@ -148,7 +150,9 @@ class _BlogEditScreenState extends ConsumerState<BlogEditScreen> {
           .where((t) => t.isNotEmpty)
           .toList();
 
-      await ref.read(blogRepositoryProvider).updatePost(
+      await ref
+          .read(blogRepositoryProvider)
+          .updatePost(
             id: widget.postId,
             title: _titleController.text.trim(),
             body: _bodyController.text.trim(),
@@ -159,8 +163,7 @@ class _BlogEditScreenState extends ConsumerState<BlogEditScreen> {
                 ? _mediaUrlController.text.trim()
                 : null,
             status: _selectedStatus,
-            scheduledFor:
-                _selectedStatus == 'scheduled' ? _scheduledFor : null,
+            scheduledFor: _selectedStatus == 'scheduled' ? _scheduledFor : null,
             isPinned: _isPinned,
           );
 
@@ -259,7 +262,8 @@ class _BlogEditScreenState extends ConsumerState<BlogEditScreen> {
                             ),
                           ],
                           onChanged: (val) {
-                            if (val != null) setState(() => _selectedType = val);
+                            if (val != null)
+                              setState(() => _selectedType = val);
                           },
                         ),
                       ),
@@ -267,7 +271,9 @@ class _BlogEditScreenState extends ConsumerState<BlogEditScreen> {
                       Expanded(
                         child: DropdownButtonFormField<String>(
                           value: _selectedCategory,
-                          decoration: const InputDecoration(labelText: 'Category'),
+                          decoration: const InputDecoration(
+                            labelText: 'Category',
+                          ),
                           items: BlogCategories.all.map((cat) {
                             return DropdownMenuItem(
                               value: cat,
@@ -334,8 +340,9 @@ class _BlogEditScreenState extends ConsumerState<BlogEditScreen> {
                               ? const SizedBox(
                                   width: 16,
                                   height: 16,
-                                  child:
-                                      CircularProgressIndicator(strokeWidth: 2),
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                  ),
                                 )
                               : const Icon(Icons.file_upload_outlined),
                           label: const Text('Upload'),
@@ -441,7 +448,9 @@ class _BlogEditScreenState extends ConsumerState<BlogEditScreen> {
                               ? 'Scheduled: ${DateFormat.yMMMd().add_jm().format(_scheduledFor!.toLocal())}'
                               : 'Set Schedule Time',
                         ),
-                        subtitle: const Text('Tap to change publication date & time'),
+                        subtitle: const Text(
+                          'Tap to change publication date & time',
+                        ),
                         trailing: const Icon(Icons.edit_calendar, size: 20),
                         onTap: _pickScheduleDateTime,
                       ),

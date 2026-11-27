@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+
 import '../config/env_config.dart';
 import '../../features/admin/presentation/admin_media_screen.dart';
+import '../../features/admin/presentation/admin_posts_screen.dart';
 import '../../features/admin/presentation/admin_reports_screen.dart';
 import '../../features/admin/presentation/admin_screen.dart';
 import '../../features/admin/presentation/admin_taxonomies_screen.dart';
@@ -170,6 +172,10 @@ final routerProvider = Provider<GoRouter>((ref) {
         builder: (context, state) => const AdminMediaScreen(),
       ),
       GoRoute(
+        path: '/admin/posts',
+        builder: (context, state) => const AdminPostsScreen(),
+      ),
+      GoRoute(
         path: '/admin/reports',
         builder: (context, state) => const AdminReportsScreen(),
       ),
@@ -200,8 +206,10 @@ final routerProvider = Provider<GoRouter>((ref) {
           children: [
             const Icon(Icons.error_outline, size: 64, color: Colors.orange),
             const SizedBox(height: 16),
-            Text('404 - Page Not Found',
-                style: Theme.of(context).textTheme.titleLarge),
+            Text(
+              '404 - Page Not Found',
+              style: Theme.of(context).textTheme.titleLarge,
+            ),
             const SizedBox(height: 8),
             Text(state.uri.toString()),
             const SizedBox(height: 16),

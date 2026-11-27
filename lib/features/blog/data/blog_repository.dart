@@ -64,14 +64,14 @@ class BlogRepository {
             .from('profiles')
             .select('id')
             .ilike('display_name', '%$term%');
-        authorIds = (authorRows as List)
-            .map((a) => a['id'] as String)
-            .toList();
+        authorIds = (authorRows as List).map((a) => a['id'] as String).toList();
       } catch (_) {}
 
       if (authorIds.isNotEmpty) {
         final idsList = authorIds.join(',');
-        query = query.or('title.ilike.%$term%,body.ilike.%$term%,author_id.in.($idsList)');
+        query = query.or(
+          'title.ilike.%$term%,body.ilike.%$term%,author_id.in.($idsList)',
+        );
       } else {
         query = query.or('title.ilike.%$term%,body.ilike.%$term%');
       }
@@ -94,11 +94,13 @@ class BlogRepository {
     final res = await orderedQuery.range(offset, offset + limit - 1);
 
     return (res as List)
-        .map((e) => BlogPost.fromJson(
-              e,
-              currentUserId: uid,
-              supabaseUrl: supabaseUrl,
-            ))
+        .map(
+          (e) => BlogPost.fromJson(
+            e,
+            currentUserId: uid,
+            supabaseUrl: supabaseUrl,
+          ),
+        )
         .toList();
   }
 
@@ -124,11 +126,13 @@ class BlogRepository {
         .order('created_at', ascending: false);
 
     return (res as List)
-        .map((e) => BlogPost.fromJson(
-              e,
-              currentUserId: uid,
-              supabaseUrl: supabaseUrl,
-            ))
+        .map(
+          (e) => BlogPost.fromJson(
+            e,
+            currentUserId: uid,
+            supabaseUrl: supabaseUrl,
+          ),
+        )
         .toList();
   }
 
@@ -136,10 +140,13 @@ class BlogRepository {
   Future<bool> recordPostView(String postId, {String? sessionHash}) async {
     if (_client == null) return false;
     try {
-      final res = await _client.rpc('record_post_view', params: {
-        'p_post_id': postId,
-        'p_session_hash': sessionHash ?? _getSessionHash(),
-      });
+      final res = await _client.rpc(
+        'record_post_view',
+        params: {
+          'p_post_id': postId,
+          'p_session_hash': sessionHash ?? _getSessionHash(),
+        },
+      );
       return res as bool? ?? false;
     } catch (_) {
       return false;
@@ -160,11 +167,7 @@ class BlogRepository {
         .maybeSingle();
 
     if (res == null) return null;
-    return BlogPost.fromJson(
-      res,
-      currentUserId: uid,
-      supabaseUrl: supabaseUrl,
-    );
+    return BlogPost.fromJson(res, currentUserId: uid, supabaseUrl: supabaseUrl);
   }
 
   /// Toggle like on post
@@ -221,11 +224,13 @@ class BlogRepository {
 
     return (res as List)
         .where((e) => e['posts'] != null)
-        .map((e) => BlogPost.fromJson(
-              e['posts'] as Map<String, dynamic>,
-              currentUserId: uid,
-              supabaseUrl: supabaseUrl,
-            ))
+        .map(
+          (e) => BlogPost.fromJson(
+            e['posts'] as Map<String, dynamic>,
+            currentUserId: uid,
+            supabaseUrl: supabaseUrl,
+          ),
+        )
         .toList();
   }
 
@@ -243,7 +248,9 @@ class BlogRepository {
       'reporter_id': uid,
       'post_id': postId,
       'reason': reason.trim(),
-      'details': details != null ? ContentSanitizer.sanitizeComment(details) : null,
+      'details': details != null
+          ? ContentSanitizer.sanitizeComment(details)
+          : null,
       'status': 'open',
     });
   }
@@ -264,7 +271,9 @@ class BlogRepository {
       'post_id': postId,
       'comment_id': commentId,
       'reason': reason.trim(),
-      'details': details != null ? ContentSanitizer.sanitizeComment(details) : null,
+      'details': details != null
+          ? ContentSanitizer.sanitizeComment(details)
+          : null,
       'status': 'open',
     });
   }
@@ -312,10 +321,13 @@ class BlogRepository {
     final sanitized = ContentSanitizer.sanitizeComment(newBody);
     if (sanitized.isEmpty) return;
 
-    await _client.from('post_comments').update({
-      'body': sanitized,
-      'updated_at': DateTime.now().toUtc().toIso8601String(),
-    }).eq('id', commentId);
+    await _client
+        .from('post_comments')
+        .update({
+          'body': sanitized,
+          'updated_at': DateTime.now().toUtc().toIso8601String(),
+        })
+        .eq('id', commentId);
   }
 
   /// Delete own comment
@@ -327,55 +339,60 @@ class BlogRepository {
   /// Admin hide or unhide comment (recorded in audit logs)
   Future<void> adminHideComment(String commentId, bool hide) async {
     if (_client == null) return;
-    await _client.rpc('admin_hide_comment', params: {
-      'p_comment_id': commentId,
-      'p_hide': hide,
-    });
+    await _client.rpc(
+      'admin_hide_comment',
+      params: {'p_comment_id': commentId, 'p_hide': hide},
+    );
   }
 
   /// Admin delete comment (recorded in audit logs)
   Future<void> adminDeleteComment(String commentId) async {
     if (_client == null) return;
-    await _client.rpc('admin_delete_comment', params: {
-      'p_comment_id': commentId,
-    });
+    await _client.rpc(
+      'admin_delete_comment',
+      params: {'p_comment_id': commentId},
+    );
   }
 
   /// Admin delete post (recorded in audit logs)
   Future<void> adminDeletePost(String postId) async {
     if (_client == null) return;
-    await _client.rpc('admin_delete_post', params: {
-      'p_post_id': postId,
-    });
+    await _client.rpc('admin_delete_post', params: {'p_post_id': postId});
   }
 
   /// Admin publish / unpublish post (recorded in audit logs)
   Future<void> adminSetPublishStatus(String postId, bool publish) async {
     if (_client == null) return;
-    await _client.rpc('admin_set_publish_status', params: {
-      'p_post_id': postId,
-      'p_publish': publish,
-    });
+    await _client.rpc(
+      'admin_set_publish_status',
+      params: {'p_post_id': postId, 'p_publish': publish},
+    );
   }
 
   /// Schedule a post for future publication
   Future<void> schedulePost(String postId, DateTime scheduledFor) async {
     if (_client == null) return;
-    await _client.from('posts').update({
-      'status': 'scheduled',
-      'scheduled_for': scheduledFor.toUtc().toIso8601String(),
-      'updated_at': DateTime.now().toUtc().toIso8601String(),
-    }).eq('id', postId);
+    await _client
+        .from('posts')
+        .update({
+          'status': 'scheduled',
+          'scheduled_for': scheduledFor.toUtc().toIso8601String(),
+          'updated_at': DateTime.now().toUtc().toIso8601String(),
+        })
+        .eq('id', postId);
   }
 
   /// Cancel scheduled post, reverting to draft
   Future<void> cancelScheduledPost(String postId) async {
     if (_client == null) return;
-    await _client.from('posts').update({
-      'status': 'draft',
-      'scheduled_for': null,
-      'updated_at': DateTime.now().toUtc().toIso8601String(),
-    }).eq('id', postId);
+    await _client
+        .from('posts')
+        .update({
+          'status': 'draft',
+          'scheduled_for': null,
+          'updated_at': DateTime.now().toUtc().toIso8601String(),
+        })
+        .eq('id', postId);
   }
 
   /// Fetch moderation reports for admins
@@ -383,9 +400,11 @@ class BlogRepository {
     String? status = 'open',
   }) async {
     if (_client == null) return [];
-    var query = _client.from('reports').select(
-      '*, reporter:reporter_id(display_name, avatar_url), post:post_id(title, status), comment:comment_id(body, is_hidden)',
-    );
+    var query = _client
+        .from('reports')
+        .select(
+          '*, reporter:reporter_id(display_name, avatar_url), post:post_id(title, status), comment:comment_id(body, is_hidden)',
+        );
     if (status != null && status.isNotEmpty && status != 'all') {
       query = query.eq('status', status);
     }
@@ -396,10 +415,10 @@ class BlogRepository {
   /// Admin action moderation report (dismiss, action_hide, action_delete)
   Future<void> adminActionReport(String reportId, String action) async {
     if (_client == null) return;
-    await _client.rpc('admin_action_report', params: {
-      'p_report_id': reportId,
-      'p_action': action,
-    });
+    await _client.rpc(
+      'admin_action_report',
+      params: {'p_report_id': reportId, 'p_action': action},
+    );
   }
 
   /// Create a new post with optional gallery media, scheduling, and content sanitization
@@ -424,24 +443,32 @@ class BlogRepository {
 
     final isScheduled =
         scheduledFor != null && scheduledFor.isAfter(DateTime.now());
-    final status = isScheduled ? 'scheduled' : (publishNow ? 'published' : 'draft');
-    final publishedAt =
-        (publishNow && !isScheduled) ? DateTime.now().toUtc().toIso8601String() : null;
-    final scheduledForIso =
-        isScheduled ? scheduledFor.toUtc().toIso8601String() : null;
+    final status = isScheduled
+        ? 'scheduled'
+        : (publishNow ? 'published' : 'draft');
+    final publishedAt = (publishNow && !isScheduled)
+        ? DateTime.now().toUtc().toIso8601String()
+        : null;
+    final scheduledForIso = isScheduled
+        ? scheduledFor.toUtc().toIso8601String()
+        : null;
 
-    final res = await _client.from('posts').insert({
-      'author_id': uid,
-      'title': sanitizedTitle,
-      'body': sanitizedBody,
-      'type': type,
-      'category': category,
-      'tags': cleanedTags,
-      'cover_url': coverUrl,
-      'status': status,
-      'published_at': publishedAt,
-      'scheduled_for': scheduledForIso,
-    }).select('id').single();
+    final res = await _client
+        .from('posts')
+        .insert({
+          'author_id': uid,
+          'title': sanitizedTitle,
+          'body': sanitizedBody,
+          'type': type,
+          'category': category,
+          'tags': cleanedTags,
+          'cover_url': coverUrl,
+          'status': status,
+          'published_at': publishedAt,
+          'scheduled_for': scheduledForIso,
+        })
+        .select('id')
+        .single();
 
     final newPostId = res['id'] as String;
 
@@ -605,7 +632,8 @@ class BlogRepository {
       final item = reorderedMedia[i];
       await _client
           .from('post_media')
-          .update({'sort_order': i}).eq('id', item.id);
+          .update({'sort_order': i})
+          .eq('id', item.id);
     }
   }
 
@@ -614,7 +642,10 @@ class BlogRepository {
     if (_client == null) return;
     await _client
         .from('posts')
-        .update({'cover_url': coverUrl, 'updated_at': DateTime.now().toIso8601String()})
+        .update({
+          'cover_url': coverUrl,
+          'updated_at': DateTime.now().toIso8601String(),
+        })
         .eq('id', postId);
   }
 
@@ -623,13 +654,72 @@ class BlogRepository {
     if (_client == null) return;
     final updates = <String, dynamic>{
       'status': status,
-      'updated_at': DateTime.now().toIso8601String(),
+      'updated_at': DateTime.now().toUtc().toIso8601String(),
     };
     if (status == 'published') {
-      updates['published_at'] = DateTime.now().toIso8601String();
+      updates['published_at'] = DateTime.now().toUtc().toIso8601String();
     }
     await _client.from('posts').update(updates).eq('id', id);
   }
+
+  /// Toggle pin status on a post
+  Future<void> togglePinPost(String id, bool isPinned) async {
+    if (_client == null) return;
+    await _client
+        .from('posts')
+        .update({
+          'is_pinned': isPinned,
+          'updated_at': DateTime.now().toUtc().toIso8601String(),
+        })
+        .eq('id', id);
+  }
+
+  /// Fetch all posts across authors for administrative oversight
+  Future<List<BlogPost>> getAllPostsAdmin({
+    String? status,
+    String? type,
+    String? searchQuery,
+    int limit = 50,
+    int offset = 0,
+  }) async {
+    if (_client == null) return [];
+    final uid = currentUserId;
+
+    var query = _client
+        .from('posts')
+        .select(
+          '*, profiles:author_id(display_name, avatar_url), post_likes(user_id), post_bookmarks(user_id), post_media(*)',
+        );
+
+    if (status != null && status.isNotEmpty && status != 'all') {
+      query = query.eq('status', status);
+    }
+
+    if (type != null && type.isNotEmpty && type != 'all') {
+      query = query.eq('type', type);
+    }
+
+    if (searchQuery != null && searchQuery.trim().isNotEmpty) {
+      final term = searchQuery.trim();
+      query = query.or('title.ilike.%$term%,body.ilike.%$term%');
+    }
+
+    final res = await query
+        .order('is_pinned', ascending: false)
+        .order('created_at', ascending: false)
+        .range(offset, offset + limit - 1);
+
+    return (res as List)
+        .map(
+          (e) => BlogPost.fromJson(
+            e,
+            currentUserId: uid,
+            supabaseUrl: supabaseUrl,
+          ),
+        )
+        .toList();
+  }
+
   /// Fetch related posts based on matching category or shared tags, excluding the current post
   Future<List<BlogPost>> getRelatedPosts({
     required String postId,
@@ -657,11 +747,13 @@ class BlogRepository {
         .limit(limit);
 
     return (res as List)
-        .map((e) => BlogPost.fromJson(
-              e,
-              currentUserId: uid,
-              supabaseUrl: supabaseUrl,
-            ))
+        .map(
+          (e) => BlogPost.fromJson(
+            e,
+            currentUserId: uid,
+            supabaseUrl: supabaseUrl,
+          ),
+        )
         .toList();
   }
 
@@ -696,10 +788,10 @@ class BlogRepository {
     required String newSlug,
   }) async {
     if (_client == null) return;
-    await _client.from('blog_categories').update({
-      'name': newName.trim(),
-      'slug': newSlug.trim().toLowerCase(),
-    }).eq('id', id);
+    await _client
+        .from('blog_categories')
+        .update({'name': newName.trim(), 'slug': newSlug.trim().toLowerCase()})
+        .eq('id', id);
   }
 
   /// Merge source category into target category and reassign all posts
@@ -708,10 +800,10 @@ class BlogRepository {
     required String targetSlug,
   }) async {
     if (_client == null) return;
-    await _client.rpc('merge_blog_categories', params: {
-      'p_source_slug': sourceSlug,
-      'p_target_slug': targetSlug,
-    });
+    await _client.rpc(
+      'merge_blog_categories',
+      params: {'p_source_slug': sourceSlug, 'p_target_slug': targetSlug},
+    );
   }
 
   /// Safely delete category, reassigning existing posts to fallback
@@ -720,10 +812,10 @@ class BlogRepository {
     String fallbackSlug = 'news',
   }) async {
     if (_client == null) return;
-    await _client.rpc('delete_blog_category', params: {
-      'p_slug_to_delete': slug,
-      'p_fallback_slug': fallbackSlug,
-    });
+    await _client.rpc(
+      'delete_blog_category',
+      params: {'p_slug_to_delete': slug, 'p_fallback_slug': fallbackSlug},
+    );
   }
 
   /// Get all tags
@@ -753,10 +845,10 @@ class BlogRepository {
     required String newSlug,
   }) async {
     if (_client == null) return;
-    await _client.from('blog_tags').update({
-      'name': newName.trim(),
-      'slug': newSlug.trim().toLowerCase(),
-    }).eq('id', id);
+    await _client
+        .from('blog_tags')
+        .update({'name': newName.trim(), 'slug': newSlug.trim().toLowerCase()})
+        .eq('id', id);
   }
 
   /// Merge source tag into target tag and reassign in all posts
@@ -765,24 +857,23 @@ class BlogRepository {
     required String targetName,
   }) async {
     if (_client == null) return;
-    await _client.rpc('merge_blog_tags', params: {
-      'p_source_name': sourceName,
-      'p_target_name': targetName,
-    });
+    await _client.rpc(
+      'merge_blog_tags',
+      params: {'p_source_name': sourceName, 'p_target_name': targetName},
+    );
   }
 
   /// Safely delete tag from database and post tag arrays
   Future<void> deleteTag(String tagName) async {
     if (_client == null) return;
-    await _client.rpc('delete_blog_tag', params: {
-      'p_tag_name': tagName,
-    });
+    await _client.rpc('delete_blog_tag', params: {'p_tag_name': tagName});
   }
 }
 
 final blogRepositoryProvider = Provider<BlogRepository>((ref) {
-  final client =
-      isSupabaseInitialized ? ref.watch(supabaseClientProvider) : null;
+  final client = isSupabaseInitialized
+      ? ref.watch(supabaseClientProvider)
+      : null;
   return BlogRepository(client);
 });
 
@@ -804,9 +895,13 @@ final tagsListProvider = FutureProvider<List<BlogTag>>((ref) async {
 });
 
 /// Related posts provider for post detail screen
-final relatedPostsProvider =
-    FutureProvider.family<List<BlogPost>, BlogPost>((ref, post) async {
-  return ref.watch(blogRepositoryProvider).getRelatedPosts(
+final relatedPostsProvider = FutureProvider.family<List<BlogPost>, BlogPost>((
+  ref,
+  post,
+) async {
+  return ref
+      .watch(blogRepositoryProvider)
+      .getRelatedPosts(
         postId: post.id,
         category: post.category,
         tags: post.tags,
@@ -859,9 +954,48 @@ final myBookmarksProvider = FutureProvider<List<BlogPost>>((ref) async {
 /// Moderation reports provider for admin queue
 final moderationReportsProvider =
     FutureProvider.family<List<Map<String, dynamic>>, String>((
-  ref,
-  status,
-) async {
-  final repo = ref.watch(blogRepositoryProvider);
-  return repo.getModerationReports(status: status);
-});
+      ref,
+      status,
+    ) async {
+      final repo = ref.watch(blogRepositoryProvider);
+      return repo.getModerationReports(status: status);
+    });
+
+/// Immutable filter parameter for admin post management
+class AdminPostsFilter {
+  final String status;
+  final String type;
+  final String searchQuery;
+
+  const AdminPostsFilter({
+    this.status = 'all',
+    this.type = 'all',
+    this.searchQuery = '',
+  });
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is AdminPostsFilter &&
+          runtimeType == other.runtimeType &&
+          status == other.status &&
+          type == other.type &&
+          searchQuery == other.searchQuery;
+
+  @override
+  int get hashCode => Object.hash(status, type, searchQuery);
+}
+
+/// Admin posts provider
+final adminPostsProvider =
+    FutureProvider.family<List<BlogPost>, AdminPostsFilter>((
+      ref,
+      filter,
+    ) async {
+      final repo = ref.watch(blogRepositoryProvider);
+      return repo.getAllPostsAdmin(
+        status: filter.status,
+        type: filter.type,
+        searchQuery: filter.searchQuery,
+      );
+    });

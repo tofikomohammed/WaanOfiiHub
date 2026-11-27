@@ -24,39 +24,37 @@ void main() {
   );
 
   group('PostCard Widget Tests', () {
-    testWidgets('renders title, category pill, author name, likes and comments',
-        (tester) async {
-      await tester.pumpWidget(
-        MaterialApp(
-          home: Scaffold(
-            body: PostCard(
-              post: samplePost,
-              onLikeToggle: () {},
+    testWidgets(
+      'renders title, category pill, author name, likes and comments',
+      (tester) async {
+        await tester.pumpWidget(
+          MaterialApp(
+            home: Scaffold(
+              body: PostCard(post: samplePost, onLikeToggle: () {}),
             ),
           ),
-        ),
-      );
+        );
 
-      expect(find.text('Modern Drip Irrigation Systems'), findsOneWidget);
-      expect(find.text('AGRICULTURE'), findsOneWidget);
-      expect(find.text('By Professor Tariq'), findsOneWidget);
-      expect(find.text('14'), findsOneWidget);
-      expect(find.text('6'), findsOneWidget);
-      expect(find.byIcon(Icons.favorite), findsOneWidget); // Liked by me
-    });
+        expect(find.text('Modern Drip Irrigation Systems'), findsOneWidget);
+        expect(find.text('AGRICULTURE'), findsOneWidget);
+        expect(find.text('By Professor Tariq'), findsOneWidget);
+        expect(find.text('14'), findsOneWidget);
+        expect(find.text('6'), findsOneWidget);
+        expect(find.byIcon(Icons.favorite), findsOneWidget); // Liked by me
+      },
+    );
   });
 
   group('BlogFeedScreen Widget Tests', () {
-    testWidgets('renders category filter chips and search toggle',
-        (tester) async {
+    testWidgets('renders category filter chips and search toggle', (
+      tester,
+    ) async {
       await tester.pumpWidget(
         ProviderScope(
           overrides: [
             blogFeedProvider.overrideWith((ref) async => [samplePost]),
           ],
-          child: const MaterialApp(
-            home: BlogFeedScreen(),
-          ),
+          child: const MaterialApp(home: BlogFeedScreen()),
         ),
       );
 
@@ -76,16 +74,13 @@ void main() {
       expect(find.byIcon(Icons.search_rounded), findsOneWidget);
     });
 
-    testWidgets('displays empty state when no posts are available',
-        (tester) async {
+    testWidgets('displays empty state when no posts are available', (
+      tester,
+    ) async {
       await tester.pumpWidget(
         ProviderScope(
-          overrides: [
-            blogFeedProvider.overrideWith((ref) async => []),
-          ],
-          child: const MaterialApp(
-            home: BlogFeedScreen(),
-          ),
+          overrides: [blogFeedProvider.overrideWith((ref) async => [])],
+          child: const MaterialApp(home: BlogFeedScreen()),
         ),
       );
 

@@ -11,7 +11,9 @@ import '../../../core/widgets/loading_indicator.dart';
 import '../../blog/data/blog_storage_service.dart';
 import '../../blog/presentation/widgets/audio_player_widget.dart';
 
-final adminMediaListProvider = FutureProvider.autoDispose<List<FileObject>>((ref) async {
+final adminMediaListProvider = FutureProvider.autoDispose<List<FileObject>>((
+  ref,
+) async {
   final storage = ref.watch(blogStorageServiceProvider);
   return storage.listAllMediaFiles();
 });
@@ -31,7 +33,9 @@ class _AdminMediaScreenState extends ConsumerState<AdminMediaScreen> {
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('Delete Storage Media'),
-        content: Text('Are you sure you want to permanently delete "${file.name}"?'),
+        content: Text(
+          'Are you sure you want to permanently delete "${file.name}"?',
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(ctx).pop(false),
@@ -48,9 +52,9 @@ class _AdminMediaScreenState extends ConsumerState<AdminMediaScreen> {
 
     if (confirmed == true && mounted) {
       try {
-        await ref
-            .read(blogStorageServiceProvider)
-            .deleteStorageFiles([file.name]);
+        await ref.read(blogStorageServiceProvider).deleteStorageFiles([
+          file.name,
+        ]);
         ref.invalidate(adminMediaListProvider);
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
@@ -63,8 +67,13 @@ class _AdminMediaScreenState extends ConsumerState<AdminMediaScreen> {
     }
   }
 
-  void _showPreviewDialog(BuildContext context, FileObject file, String publicUrl) {
-    final isAudio = file.name.endsWith('.mp3') ||
+  void _showPreviewDialog(
+    BuildContext context,
+    FileObject file,
+    String publicUrl,
+  ) {
+    final isAudio =
+        file.name.endsWith('.mp3') ||
         file.name.endsWith('.m4a') ||
         file.name.endsWith('.wav');
 
@@ -103,13 +112,18 @@ class _AdminMediaScreenState extends ConsumerState<AdminMediaScreen> {
   }
 
   Future<void> _handleReplace(FileObject file) async {
-    final isAudio = file.name.endsWith('.mp3') ||
+    final isAudio =
+        file.name.endsWith('.mp3') ||
         file.name.endsWith('.m4a') ||
         file.name.endsWith('.wav');
 
     if (isAudio) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Audio replacement: upload a new audio file in post editor.')),
+        const SnackBar(
+          content: Text(
+            'Audio replacement: upload a new audio file in post editor.',
+          ),
+        ),
       );
       return;
     }
@@ -133,7 +147,9 @@ class _AdminMediaScreenState extends ConsumerState<AdminMediaScreen> {
       // Delete old and upload replacement
       await client.deleteStorageFiles([file.name]);
       await client.uploadImageBytes(
-        authorId: file.name.contains('/') ? file.name.split('/').first : 'admin',
+        authorId: file.name.contains('/')
+            ? file.name.split('/').first
+            : 'admin',
         fileName: img.name,
         bytes: compressedBytes,
         mimeType: mimeType,
@@ -206,14 +222,16 @@ class _AdminMediaScreenState extends ConsumerState<AdminMediaScreen> {
             child: RefreshIndicator(
               onRefresh: () async => ref.invalidate(adminMediaListProvider),
               child: mediaAsync.when(
-                loading: () => const LoadingIndicator(message: 'Loading media...'),
+                loading: () =>
+                    const LoadingIndicator(message: 'Loading media...'),
                 error: (e, stack) => ErrorView(
                   message: 'Unable to load storage media',
                   onRetry: () => ref.invalidate(adminMediaListProvider),
                 ),
                 data: (files) {
                   final filtered = files.where((f) {
-                    final isAudio = f.name.endsWith('.mp3') ||
+                    final isAudio =
+                        f.name.endsWith('.mp3') ||
                         f.name.endsWith('.m4a') ||
                         f.name.endsWith('.wav');
                     if (_filter == 'images') return !isAudio;
@@ -236,7 +254,8 @@ class _AdminMediaScreenState extends ConsumerState<AdminMediaScreen> {
                         const SizedBox(height: 8),
                     itemBuilder: (context, index) {
                       final file = filtered[index];
-                      final isAudio = file.name.endsWith('.mp3') ||
+                      final isAudio =
+                          file.name.endsWith('.mp3') ||
                           file.name.endsWith('.m4a') ||
                           file.name.endsWith('.wav');
                       final publicUrl =
@@ -246,7 +265,8 @@ class _AdminMediaScreenState extends ConsumerState<AdminMediaScreen> {
                         child: ListTile(
                           leading: isAudio
                               ? CircleAvatar(
-                                  backgroundColor: theme.colorScheme.primaryContainer,
+                                  backgroundColor:
+                                      theme.colorScheme.primaryContainer,
                                   child: const Icon(Icons.audiotrack),
                                 )
                               : ClipRRect(
@@ -259,7 +279,9 @@ class _AdminMediaScreenState extends ConsumerState<AdminMediaScreen> {
                                     placeholder: (context, url) => Container(
                                       width: 48,
                                       height: 48,
-                                      color: theme.colorScheme.surfaceContainerHighest,
+                                      color: theme
+                                          .colorScheme
+                                          .surfaceContainerHighest,
                                     ),
                                     errorWidget: (context, url, error) =>
                                         const Icon(Icons.image_outlined),
@@ -280,8 +302,11 @@ class _AdminMediaScreenState extends ConsumerState<AdminMediaScreen> {
                               IconButton(
                                 icon: const Icon(Icons.visibility_outlined),
                                 tooltip: 'Preview',
-                                onPressed: () =>
-                                    _showPreviewDialog(context, file, publicUrl),
+                                onPressed: () => _showPreviewDialog(
+                                  context,
+                                  file,
+                                  publicUrl,
+                                ),
                               ),
                               IconButton(
                                 icon: const Icon(Icons.swap_horiz_rounded),
@@ -289,7 +314,10 @@ class _AdminMediaScreenState extends ConsumerState<AdminMediaScreen> {
                                 onPressed: () => _handleReplace(file),
                               ),
                               IconButton(
-                                icon: const Icon(Icons.delete_outline, color: Colors.red),
+                                icon: const Icon(
+                                  Icons.delete_outline,
+                                  color: Colors.red,
+                                ),
                                 tooltip: 'Delete File',
                                 onPressed: () => _handleDelete(file),
                               ),

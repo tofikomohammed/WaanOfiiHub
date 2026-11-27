@@ -27,71 +27,75 @@ void main() {
   );
 
   group('Blog Key Integration Flows Tests', () {
-    testWidgets('Like and Bookmark Flow: toggles like and bookmark state correctly',
-        (tester) async {
-      bool likeToggled = false;
-      bool bookmarkToggled = false;
+    testWidgets(
+      'Like and Bookmark Flow: toggles like and bookmark state correctly',
+      (tester) async {
+        bool likeToggled = false;
+        bool bookmarkToggled = false;
 
-      await tester.pumpWidget(
-        MaterialApp(
-          home: Scaffold(
-            body: PostCard(
-              post: testPost,
-              onLikeToggle: () => likeToggled = true,
-              onBookmarkToggle: () => bookmarkToggled = true,
+        await tester.pumpWidget(
+          MaterialApp(
+            home: Scaffold(
+              body: PostCard(
+                post: testPost,
+                onLikeToggle: () => likeToggled = true,
+                onBookmarkToggle: () => bookmarkToggled = true,
+              ),
             ),
           ),
-        ),
-      );
+        );
 
-      // Verify title & initial status
-      expect(find.text('Clean Water Initiative in Rural Areas'), findsOneWidget);
-      expect(find.byIcon(Icons.favorite_border), findsOneWidget);
-      expect(find.byIcon(Icons.bookmark_border_rounded), findsOneWidget);
+        // Verify title & initial status
+        expect(
+          find.text('Clean Water Initiative in Rural Areas'),
+          findsOneWidget,
+        );
+        expect(find.byIcon(Icons.favorite_border), findsOneWidget);
+        expect(find.byIcon(Icons.bookmark_border_rounded), findsOneWidget);
 
-      // Tap Like button
-      await tester.tap(find.byIcon(Icons.favorite_border));
-      await tester.pump();
-      expect(likeToggled, isTrue);
+        // Tap Like button
+        await tester.tap(find.byIcon(Icons.favorite_border));
+        await tester.pump();
+        expect(likeToggled, isTrue);
 
-      // Tap Bookmark button
-      await tester.tap(find.byIcon(Icons.bookmark_border_rounded));
-      await tester.pump();
-      expect(bookmarkToggled, isTrue);
-    });
+        // Tap Bookmark button
+        await tester.tap(find.byIcon(Icons.bookmark_border_rounded));
+        await tester.pump();
+        expect(bookmarkToggled, isTrue);
+      },
+    );
 
-    testWidgets('My Bookmarks Screen Flow: renders saved posts and handles empty state',
-        (tester) async {
-      final bookmarkedPost = testPost.copyWith(isBookmarkedByMe: true);
+    testWidgets(
+      'My Bookmarks Screen Flow: renders saved posts and handles empty state',
+      (tester) async {
+        final bookmarkedPost = testPost.copyWith(isBookmarkedByMe: true);
 
-      // 1. Screen with 1 bookmarked post
-      await tester.pumpWidget(
-        ProviderScope(
-          overrides: [
-            myBookmarksProvider.overrideWith((ref) async => [bookmarkedPost]),
-          ],
-          child: const MaterialApp(
-            home: MyBookmarksScreen(),
+        // 1. Screen with 1 bookmarked post
+        await tester.pumpWidget(
+          ProviderScope(
+            overrides: [
+              myBookmarksProvider.overrideWith((ref) async => [bookmarkedPost]),
+            ],
+            child: const MaterialApp(home: MyBookmarksScreen()),
           ),
-        ),
-      );
+        );
 
-      await tester.pumpAndSettle();
+        await tester.pumpAndSettle();
 
-      expect(find.text('Saved Articles'), findsOneWidget);
-      expect(find.text('Clean Water Initiative in Rural Areas'), findsOneWidget);
-      expect(find.byIcon(Icons.bookmark), findsOneWidget);
-    });
+        expect(find.text('Saved Articles'), findsOneWidget);
+        expect(
+          find.text('Clean Water Initiative in Rural Areas'),
+          findsOneWidget,
+        );
+        expect(find.byIcon(Icons.bookmark), findsOneWidget);
+      },
+    );
 
     testWidgets('My Bookmarks Empty State Flow', (tester) async {
       await tester.pumpWidget(
         ProviderScope(
-          overrides: [
-            myBookmarksProvider.overrideWith((ref) async => []),
-          ],
-          child: const MaterialApp(
-            home: MyBookmarksScreen(),
-          ),
+          overrides: [myBookmarksProvider.overrideWith((ref) async => [])],
+          child: const MaterialApp(home: MyBookmarksScreen()),
         ),
       );
 
@@ -106,17 +110,16 @@ void main() {
       );
     });
 
-    testWidgets('Feed Filter and Clear Flow: resets combined filters cleanly',
-        (tester) async {
+    testWidgets('Feed Filter and Clear Flow: resets combined filters cleanly', (
+      tester,
+    ) async {
       await tester.pumpWidget(
         ProviderScope(
           overrides: [
             blogFeedProvider.overrideWith((ref) async => []),
             selectedBlogCategoryProvider.overrideWith((ref) => 'technology'),
           ],
-          child: const MaterialApp(
-            home: BlogFeedScreen(),
-          ),
+          child: const MaterialApp(home: BlogFeedScreen()),
         ),
       );
 
@@ -139,8 +142,7 @@ void main() {
       repo = BlogRepository(null);
     });
 
-    test('toggleBookmark, getBookmarkedPosts, reportPost execute safely when uninitialized',
-        () async {
+    test('toggleBookmark, getBookmarkedPosts, reportPost execute safely when uninitialized', () async {
       expect(await repo.getBookmarkedPosts(), isEmpty);
 
       // Should complete without crashing

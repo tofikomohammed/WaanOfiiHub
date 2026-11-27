@@ -87,7 +87,9 @@ class _BlogFeedScreenState extends ConsumerState<BlogFeedScreen> {
         dateFrom = DateTime.now().subtract(const Duration(days: 365));
       }
 
-      final more = await ref.read(blogRepositoryProvider).getPublishedPosts(
+      final more = await ref
+          .read(blogRepositoryProvider)
+          .getPublishedPosts(
             category: category == 'all' ? null : category,
             postType: type == 'all' ? null : type,
             tag: tag,
@@ -159,7 +161,8 @@ class _BlogFeedScreenState extends ConsumerState<BlogFeedScreen> {
     final selectedSort = ref.watch(selectedBlogSortProvider);
     final searchQuery = ref.watch(blogSearchQueryProvider);
 
-    final hasActiveFilters = selectedCategory != 'all' ||
+    final hasActiveFilters =
+        selectedCategory != 'all' ||
         selectedType != 'all' ||
         selectedTag != null ||
         selectedDate != 'all' ||
@@ -262,7 +265,10 @@ class _BlogFeedScreenState extends ConsumerState<BlogFeedScreen> {
 
           // Row 2: Secondary Filters & Sort Bar
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 6.0),
+            padding: const EdgeInsets.symmetric(
+              horizontal: 16.0,
+              vertical: 6.0,
+            ),
             decoration: BoxDecoration(
               color: theme.colorScheme.surfaceContainerLowest,
               border: Border(
@@ -299,8 +305,8 @@ class _BlogFeedScreenState extends ConsumerState<BlogFeedScreen> {
                         selectedSort == 'likes'
                             ? 'Most Liked'
                             : (selectedSort == 'comments'
-                                ? 'Most Commented'
-                                : 'Latest'),
+                                  ? 'Most Commented'
+                                  : 'Latest'),
                         style: const TextStyle(fontSize: 12),
                       ),
                     ),
@@ -309,10 +315,7 @@ class _BlogFeedScreenState extends ConsumerState<BlogFeedScreen> {
                         value: 'latest',
                         child: Text('Latest Published'),
                       ),
-                      PopupMenuItem(
-                        value: 'likes',
-                        child: Text('Most Liked'),
-                      ),
+                      PopupMenuItem(value: 'likes', child: Text('Most Liked')),
                       PopupMenuItem(
                         value: 'comments',
                         child: Text('Most Commented'),
@@ -331,25 +334,34 @@ class _BlogFeedScreenState extends ConsumerState<BlogFeedScreen> {
                       _resetPagination();
                     },
                     child: Chip(
-                      avatar: const Icon(Icons.calendar_today_rounded, size: 14),
+                      avatar: const Icon(
+                        Icons.calendar_today_rounded,
+                        size: 14,
+                      ),
                       label: Text(
                         selectedDate == 'today'
                             ? 'Past 24h'
                             : (selectedDate == 'week'
-                                ? 'Past Week'
-                                : (selectedDate == 'month'
-                                    ? 'Past Month'
-                                    : (selectedDate == 'year'
-                                        ? 'Past Year'
-                                        : 'Any Time'))),
+                                  ? 'Past Week'
+                                  : (selectedDate == 'month'
+                                        ? 'Past Month'
+                                        : (selectedDate == 'year'
+                                              ? 'Past Year'
+                                              : 'Any Time'))),
                         style: const TextStyle(fontSize: 12),
                       ),
                     ),
                     itemBuilder: (ctx) => const [
                       PopupMenuItem(value: 'all', child: Text('Any Time')),
-                      PopupMenuItem(value: 'today', child: Text('Past 24 Hours')),
+                      PopupMenuItem(
+                        value: 'today',
+                        child: Text('Past 24 Hours'),
+                      ),
                       PopupMenuItem(value: 'week', child: Text('Past 7 Days')),
-                      PopupMenuItem(value: 'month', child: Text('Past 30 Days')),
+                      PopupMenuItem(
+                        value: 'month',
+                        child: Text('Past 30 Days'),
+                      ),
                       PopupMenuItem(value: 'year', child: Text('Past Year')),
                     ],
                   ),
@@ -375,7 +387,10 @@ class _BlogFeedScreenState extends ConsumerState<BlogFeedScreen> {
                         padding: const EdgeInsets.symmetric(horizontal: 8),
                       ),
                       icon: const Icon(Icons.clear_all, size: 16),
-                      label: const Text('Reset', style: TextStyle(fontSize: 12)),
+                      label: const Text(
+                        'Reset',
+                        style: TextStyle(fontSize: 12),
+                      ),
                       onPressed: _clearAllFilters,
                     ),
                   ],
@@ -410,8 +425,7 @@ class _BlogFeedScreenState extends ConsumerState<BlogFeedScreen> {
                       return EmptyState(
                         icon: Icons.search_off_rounded,
                         title: 'No Matching Posts',
-                        subtitle:
-                            'No articles match your current filters or search terms.',
+                        subtitle: 'No articles match your current filters or search terms.',
                         action: TextButton.icon(
                           icon: const Icon(Icons.refresh_rounded),
                           label: const Text('Reset Filters'),
@@ -438,7 +452,8 @@ class _BlogFeedScreenState extends ConsumerState<BlogFeedScreen> {
                   return ListView.separated(
                     controller: _scrollController,
                     padding: const EdgeInsets.all(16.0),
-                    itemCount: allPosts.length +
+                    itemCount:
+                        allPosts.length +
                         (_isLoadingMore || _paginationError != null ? 1 : 0),
                     separatorBuilder: (context, index) =>
                         const SizedBox(height: 16),
@@ -537,8 +552,9 @@ class _BlogFeedScreenState extends ConsumerState<BlogFeedScreen> {
         ),
       ),
       onSelected: (selected) {
-        ref.read(selectedBlogCategoryProvider.notifier).state =
-            selected ? key : 'all';
+        ref.read(selectedBlogCategoryProvider.notifier).state = selected
+            ? key
+            : 'all';
         _resetPagination();
       },
     );
@@ -553,8 +569,9 @@ class _BlogFeedScreenState extends ConsumerState<BlogFeedScreen> {
       label: Text(label, style: const TextStyle(fontSize: 11)),
       selected: isSelected,
       onSelected: (selected) {
-        ref.read(selectedBlogTypeProvider.notifier).state =
-            selected ? key : 'all';
+        ref.read(selectedBlogTypeProvider.notifier).state = selected
+            ? key
+            : 'all';
         _resetPagination();
       },
       visualDensity: VisualDensity.compact,

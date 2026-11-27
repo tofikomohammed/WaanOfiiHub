@@ -148,11 +148,11 @@ class _AudioPlayerWidgetState extends State<AudioPlayerWidget> {
                   children: [
                     Slider(
                       value: _position.inMilliseconds.toDouble().clamp(
-                            0.0,
-                            _duration.inMilliseconds.toDouble() > 0
-                                ? _duration.inMilliseconds.toDouble()
-                                : 0.0,
-                          ),
+                        0.0,
+                        _duration.inMilliseconds.toDouble() > 0
+                            ? _duration.inMilliseconds.toDouble()
+                            : 0.0,
+                      ),
                       max: _duration.inMilliseconds.toDouble() > 0
                           ? _duration.inMilliseconds.toDouble()
                           : 1.0,

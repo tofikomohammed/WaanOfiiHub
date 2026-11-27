@@ -103,7 +103,9 @@ class _ChatConversationScreenState
             tooltip: 'Refresh',
             onPressed: () {
               ref.invalidate(chatMessagesStreamProvider(widget.conversationId));
-              ref.invalidate(conversationDetailsProvider(widget.conversationId));
+              ref.invalidate(
+                conversationDetailsProvider(widget.conversationId),
+              );
             },
           ),
         ],
@@ -120,7 +122,11 @@ class _ChatConversationScreenState
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      const Icon(Icons.error_outline_rounded, size: 48, color: Colors.amber),
+                      const Icon(
+                        Icons.error_outline_rounded,
+                        size: 48,
+                        color: Colors.amber,
+                      ),
                       const SizedBox(height: 12),
                       const Text(
                         'Connecting to chat...',
@@ -130,7 +136,10 @@ class _ChatConversationScreenState
                       Text(
                         err.toString(),
                         textAlign: TextAlign.center,
-                        style: const TextStyle(fontSize: 12, color: Colors.grey),
+                        style: const TextStyle(
+                          fontSize: 12,
+                          color: Colors.grey,
+                        ),
                       ),
                       const SizedBox(height: 16),
                       ElevatedButton.icon(
@@ -184,12 +193,16 @@ class _ChatConversationScreenState
                               type: 'audio',
                               mediaUrl: path,
                             );
-                        ref.invalidate(chatMessagesStreamProvider(widget.conversationId));
+                        ref.invalidate(
+                          chatMessagesStreamProvider(widget.conversationId),
+                        );
                         ref.invalidate(conversationsListProvider);
                       } catch (e) {
                         if (context.mounted) {
                           ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(content: Text('Failed to send voice note: $e')),
+                            SnackBar(
+                              content: Text('Failed to send voice note: $e'),
+                            ),
                           );
                         }
                       }

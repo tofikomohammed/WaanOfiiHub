@@ -158,6 +158,21 @@ class AdminScreen extends ConsumerWidget {
             Card(
               child: ListTile(
                 leading: CircleAvatar(
+                  backgroundColor: theme.colorScheme.primaryContainer,
+                  child: const Icon(Icons.article_outlined),
+                ),
+                title: const Text('Articles & Content'),
+                subtitle: const Text(
+                  'Manage all posts, published articles, drafts, and schedules',
+                ),
+                trailing: const Icon(Icons.arrow_forward_ios_rounded, size: 16),
+                onTap: () => context.push('/admin/posts'),
+              ),
+            ),
+            const SizedBox(height: 8),
+            Card(
+              child: ListTile(
+                leading: CircleAvatar(
                   backgroundColor: theme.colorScheme.tertiaryContainer,
                   child: const Icon(Icons.perm_media_outlined),
                 ),

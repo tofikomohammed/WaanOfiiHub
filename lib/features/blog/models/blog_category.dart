@@ -36,11 +36,7 @@ class BlogCategory {
     };
   }
 
-  BlogCategory copyWith({
-    String? name,
-    String? slug,
-    String? description,
-  }) {
+  BlogCategory copyWith({String? name, String? slug, String? description}) {
     return BlogCategory(
       id: id,
       name: name ?? this.name,

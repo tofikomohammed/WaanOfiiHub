@@ -28,7 +28,9 @@ class ContactsRepository {
     }
 
     try {
-      final hasPerm = await FlutterContacts.permissions.has(PermissionType.read);
+      final hasPerm = await FlutterContacts.permissions.has(
+        PermissionType.read,
+      );
       if (!hasPerm) {
         final status = await FlutterContacts.permissions.request(
           PermissionType.read,

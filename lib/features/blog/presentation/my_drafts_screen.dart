@@ -44,9 +44,8 @@ class MyDraftsScreen extends ConsumerWidget {
         await ref.read(blogRepositoryProvider).deletePost(id);
         ref.invalidate(myDraftsProvider);
         if (context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Draft deleted.')),
-          );
+          ScaffoldMessenger.of(context)
+              .showSnackBar(const SnackBar(content: Text('Draft deleted.')));
         }
       } catch (e) {
         if (context.mounted) ErrorHandler.showSnackBar(context, e);
@@ -64,7 +63,11 @@ class MyDraftsScreen extends ConsumerWidget {
       ref.invalidate(myDraftsProvider);
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Scheduled publication cancelled. Reverted to draft.')),
+          const SnackBar(
+            content: Text(
+              'Scheduled publication cancelled. Reverted to draft.',
+            ),
+          ),
         );
       }
     } catch (e) {
@@ -136,7 +139,9 @@ class MyDraftsScreen extends ConsumerWidget {
               separatorBuilder: (context, index) => const SizedBox(height: 12),
               itemBuilder: (context, index) {
                 final draft = drafts[index];
-                final dateStr = DateFormat.yMMMd().add_jm().format(draft.createdAt);
+                final dateStr = DateFormat.yMMMd().add_jm().format(
+                  draft.createdAt,
+                );
 
                 return Card(
                   child: ListTile(
@@ -186,7 +191,9 @@ class MyDraftsScreen extends ConsumerWidget {
                         const SizedBox(width: 8),
                         Expanded(
                           child: Text(
-                            draft.title.isEmpty ? '(Untitled Draft)' : draft.title,
+                            draft.title.isEmpty
+                                ? '(Untitled Draft)'
+                                : draft.title,
                             style: const TextStyle(fontWeight: FontWeight.bold),
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
@@ -240,17 +247,23 @@ class MyDraftsScreen extends ConsumerWidget {
                               color: Colors.green,
                             ),
                             tooltip: 'Publish Now',
-                            onPressed: () => _handlePublish(context, ref, draft.id),
+                            onPressed: () =>
+                                _handlePublish(context, ref, draft.id),
                           ),
                         IconButton(
                           icon: const Icon(Icons.edit_outlined),
                           tooltip: 'Edit Draft',
-                          onPressed: () => context.push('/blog/edit/${draft.id}'),
+                          onPressed: () =>
+                              context.push('/blog/edit/${draft.id}'),
                         ),
                         IconButton(
-                          icon: const Icon(Icons.delete_outline, color: Colors.red),
+                          icon: const Icon(
+                            Icons.delete_outline,
+                            color: Colors.red,
+                          ),
                           tooltip: 'Delete Draft',
-                          onPressed: () => _handleDelete(context, ref, draft.id),
+                          onPressed: () =>
+                              _handleDelete(context, ref, draft.id),
                         ),
                       ],
                     ),

@@ -69,10 +69,7 @@ class PostMedia {
     return '${minutes.toString().padLeft(2, '0')}:${seconds.toString().padLeft(2, '0')}';
   }
 
-  PostMedia copyWith({
-    int? sortOrder,
-    String? publicUrl,
-  }) {
+  PostMedia copyWith({int? sortOrder, String? publicUrl}) {
     return PostMedia(
       id: id,
       postId: postId,

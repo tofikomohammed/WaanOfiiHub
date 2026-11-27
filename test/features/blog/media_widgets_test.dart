@@ -23,9 +23,7 @@ void main() {
 
       await tester.pumpWidget(
         const MaterialApp(
-          home: Scaffold(
-            body: MultiImageGalleryWidget(images: singleImage),
-          ),
+          home: Scaffold(body: MultiImageGalleryWidget(images: singleImage)),
         ),
       );
 
@@ -33,50 +31,51 @@ void main() {
       expect(find.text('1 / 1'), findsNothing);
     });
 
-    testWidgets('renders multiple images with counter pill and thumbnail ribbon',
-        (tester) async {
-      const multiImages = [
-        PostMedia(
-          id: '1',
-          postId: 'p',
-          kind: 'image',
-          storagePath: 'author/img1.jpg',
-          publicUrl: 'https://example.com/img1.jpg',
-          mime: 'image/jpeg',
-          sizeBytes: 1000,
-          sortOrder: 0,
-        ),
-        PostMedia(
-          id: '2',
-          postId: 'p',
-          kind: 'image',
-          storagePath: 'author/img2.jpg',
-          publicUrl: 'https://example.com/img2.jpg',
-          mime: 'image/jpeg',
-          sizeBytes: 2000,
-          sortOrder: 1,
-        ),
-      ];
-
-      await tester.pumpWidget(
-        const MaterialApp(
-          home: Scaffold(
-            body: MultiImageGalleryWidget(images: multiImages),
+    testWidgets(
+      'renders multiple images with counter pill and thumbnail ribbon',
+      (tester) async {
+        const multiImages = [
+          PostMedia(
+            id: '1',
+            postId: 'p',
+            kind: 'image',
+            storagePath: 'author/img1.jpg',
+            publicUrl: 'https://example.com/img1.jpg',
+            mime: 'image/jpeg',
+            sizeBytes: 1000,
+            sortOrder: 0,
           ),
-        ),
-      );
+          PostMedia(
+            id: '2',
+            postId: 'p',
+            kind: 'image',
+            storagePath: 'author/img2.jpg',
+            publicUrl: 'https://example.com/img2.jpg',
+            mime: 'image/jpeg',
+            sizeBytes: 2000,
+            sortOrder: 1,
+          ),
+        ];
 
-      // Verify counter pill
-      expect(find.text('1 / 2'), findsOneWidget);
+        await tester.pumpWidget(
+          const MaterialApp(
+            home: Scaffold(body: MultiImageGalleryWidget(images: multiImages)),
+          ),
+        );
 
-      // Verify thumbnail ribbon
-      expect(find.byType(ListView), findsOneWidget);
-    });
+        // Verify counter pill
+        expect(find.text('1 / 2'), findsOneWidget);
+
+        // Verify thumbnail ribbon
+        expect(find.byType(ListView), findsOneWidget);
+      },
+    );
   });
 
   group('AudioPlayerWidget Tests', () {
-    testWidgets('renders title, play button and playback speed button',
-        (tester) async {
+    testWidgets('renders title, play button and playback speed button', (
+      tester,
+    ) async {
       await tester.pumpWidget(
         const MaterialApp(
           home: Scaffold(
@@ -101,16 +100,13 @@ void main() {
   });
 
   group('AdminMediaScreen Tests', () {
-    testWidgets('renders filter chips and empty state when bucket is empty',
-        (tester) async {
+    testWidgets('renders filter chips and empty state when bucket is empty', (
+      tester,
+    ) async {
       await tester.pumpWidget(
         ProviderScope(
-          overrides: [
-            adminMediaListProvider.overrideWith((ref) async => []),
-          ],
-          child: const MaterialApp(
-            home: AdminMediaScreen(),
-          ),
+          overrides: [adminMediaListProvider.overrideWith((ref) async => [])],
+          child: const MaterialApp(home: AdminMediaScreen()),
         ),
       );
 

@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
@@ -68,11 +69,9 @@ class _BlogDetailScreenState extends ConsumerState<BlogDetailScreen> {
 
     setState(() => _isSubmitting = true);
     try {
-      await ref.read(blogRepositoryProvider).addComment(
-            widget.postId,
-            text,
-            parentId: _replyingToComment?.id,
-          );
+      await ref
+          .read(blogRepositoryProvider)
+          .addComment(widget.postId, text, parentId: _replyingToComment?.id);
       _commentController.clear();
       setState(() => _replyingToComment = null);
       ref.invalidate(postCommentsProvider(widget.postId));
@@ -127,9 +126,8 @@ class _BlogDetailScreenState extends ConsumerState<BlogDetailScreen> {
             .updateComment(comment.id, newText);
         ref.invalidate(postCommentsProvider(widget.postId));
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Comment updated.')),
-          );
+          ScaffoldMessenger.of(context)
+              .showSnackBar(const SnackBar(content: Text('Comment updated.')));
         }
       } catch (e) {
         if (mounted) ErrorHandler.showSnackBar(context, e);
@@ -162,18 +160,15 @@ class _BlogDetailScreenState extends ConsumerState<BlogDetailScreen> {
     if (confirmed == true && mounted) {
       try {
         if (isAdmin) {
-          await ref
-              .read(blogRepositoryProvider)
-              .adminDeleteComment(comment.id);
+          await ref.read(blogRepositoryProvider).adminDeleteComment(comment.id);
         } else {
           await ref.read(blogRepositoryProvider).deleteComment(comment.id);
         }
         ref.invalidate(postCommentsProvider(widget.postId));
         ref.invalidate(postDetailProvider(widget.postId));
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Comment deleted.')),
-          );
+          ScaffoldMessenger.of(context)
+              .showSnackBar(const SnackBar(content: Text('Comment deleted.')));
         }
       } catch (e) {
         if (mounted) ErrorHandler.showSnackBar(context, e);
@@ -238,10 +233,7 @@ class _BlogDetailScreenState extends ConsumerState<BlogDetailScreen> {
                     value: 'Inappropriate content',
                     child: Text('Inappropriate content'),
                   ),
-                  DropdownMenuItem(
-                    value: 'Other',
-                    child: Text('Other reason'),
-                  ),
+                  DropdownMenuItem(value: 'Other', child: Text('Other reason')),
                 ],
                 onChanged: (val) {
                   if (val != null) setDialogState(() => selectedReason = val);
@@ -273,14 +265,18 @@ class _BlogDetailScreenState extends ConsumerState<BlogDetailScreen> {
 
     if (confirmed == true && mounted) {
       try {
-        await ref.read(blogRepositoryProvider).reportPost(
+        await ref
+            .read(blogRepositoryProvider)
+            .reportPost(
               postId: postId,
               reason: selectedReason,
               details: detailsCtrl.text.trim(),
             );
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Thank you. Post reported for moderation review.')),
+            const SnackBar(
+              content: Text('Thank you. Post reported for moderation review.'),
+            ),
           );
         }
       } catch (e) {
@@ -312,14 +308,18 @@ class _BlogDetailScreenState extends ConsumerState<BlogDetailScreen> {
 
     if (confirmed == true && mounted) {
       try {
-        await ref.read(blogRepositoryProvider).reportComment(
+        await ref
+            .read(blogRepositoryProvider)
+            .reportComment(
               commentId: commentId,
               postId: postId,
               reason: 'Inappropriate or offensive comment',
             );
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Comment reported for moderation review.')),
+            const SnackBar(
+              content: Text('Comment reported for moderation review.'),
+            ),
           );
         }
       } catch (e) {
@@ -367,6 +367,58 @@ class _BlogDetailScreenState extends ConsumerState<BlogDetailScreen> {
     }
   }
 
+  void _handleSharePost(BlogPost post) {
+    final shareText =
+        '${post.title}\n\nRead more on WAAN-OFIIHUB:\nhttps://waanofii.hub/blog/${post.id}';
+    Clipboard.setData(ClipboardData(text: shareText));
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Article link & summary copied to clipboard!'),
+          duration: Duration(seconds: 2),
+        ),
+      );
+    }
+  }
+
+  void _openCoverImageLightbox(String imageUrl, String title) {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (ctx) => Scaffold(
+          backgroundColor: Colors.black,
+          appBar: AppBar(
+            backgroundColor: Colors.transparent,
+            elevation: 0,
+            iconTheme: const IconThemeData(color: Colors.white),
+            title: Text(
+              title.isNotEmpty ? title : 'Image Preview',
+              style: const TextStyle(color: Colors.white),
+            ),
+          ),
+          body: Center(
+            child: InteractiveViewer(
+              minScale: 0.8,
+              maxScale: 4.0,
+              child: CachedNetworkImage(
+                imageUrl: imageUrl,
+                memCacheWidth: 1200,
+                fit: BoxFit.contain,
+                placeholder: (_, _) => const Center(
+                  child: CircularProgressIndicator(color: Colors.white),
+                ),
+                errorWidget: (_, _, _) => const Icon(
+                  Icons.broken_image,
+                  color: Colors.white,
+                  size: 64,
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final postAsync = ref.watch(postDetailProvider(widget.postId));
@@ -407,19 +459,24 @@ class _BlogDetailScreenState extends ConsumerState<BlogDetailScreen> {
 
         final isAuthor = post.authorId == currentUserId;
         final canEdit = (isAuthor && ref.can('blog.edit_own')) || canEditAny;
-        final canDeleteThis =
-            (isAuthor && post.status == 'draft') || canDelete;
+        final canDeleteThis = (isAuthor && post.status == 'draft') || canDelete;
 
         final dateStr = post.isScheduled && post.scheduledFor != null
             ? 'Scheduled for ${DateFormat.yMMMd().add_jm().format(post.scheduledFor!.toLocal())}'
             : (post.publishedAt != null
-                ? DateFormat.yMMMd().format(post.publishedAt!)
-                : 'Draft');
+                  ? DateFormat.yMMMd().format(post.publishedAt!)
+                  : 'Draft');
 
         return Scaffold(
           appBar: AppBar(
             title: const Text('Post'),
             actions: [
+              // Share Button
+              IconButton(
+                icon: const Icon(Icons.share_outlined),
+                tooltip: 'Share Article',
+                onPressed: () => _handleSharePost(post),
+              ),
               // Bookmark Button
               IconButton(
                 icon: Icon(
@@ -468,9 +525,16 @@ class _BlogDetailScreenState extends ConsumerState<BlogDetailScreen> {
                       value: 'delete',
                       child: Row(
                         children: [
-                          Icon(Icons.delete_outline, color: Colors.red, size: 20),
+                          Icon(
+                            Icons.delete_outline,
+                            color: Colors.red,
+                            size: 20,
+                          ),
                           SizedBox(width: 8),
-                          Text('Delete Post', style: TextStyle(color: Colors.red)),
+                          Text(
+                            'Delete Post',
+                            style: TextStyle(color: Colors.red),
+                          ),
                         ],
                       ),
                     ),
@@ -479,7 +543,11 @@ class _BlogDetailScreenState extends ConsumerState<BlogDetailScreen> {
                       value: 'report',
                       child: Row(
                         children: [
-                          Icon(Icons.flag_outlined, color: Colors.orange, size: 20),
+                          Icon(
+                            Icons.flag_outlined,
+                            color: Colors.orange,
+                            size: 20,
+                          ),
                           SizedBox(width: 8),
                           Text('Report Post'),
                         ],
@@ -496,14 +564,61 @@ class _BlogDetailScreenState extends ConsumerState<BlogDetailScreen> {
               if (post.imageMedia.isNotEmpty)
                 MultiImageGalleryWidget(images: post.imageMedia)
               else if (post.coverUrl != null && post.coverUrl!.isNotEmpty)
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(12),
-                  child: CachedNetworkImage(
-                    imageUrl: post.coverUrl!,
-                    memCacheWidth: 1000,
-                    height: 240,
-                    width: double.infinity,
-                    fit: BoxFit.cover,
+                GestureDetector(
+                  onTap: () =>
+                      _openCoverImageLightbox(post.coverUrl!, post.title),
+                  child: Stack(
+                    alignment: Alignment.bottomRight,
+                    children: [
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(12),
+                        child: CachedNetworkImage(
+                          imageUrl: post.coverUrl!,
+                          memCacheWidth: 1000,
+                          height: 240,
+                          width: double.infinity,
+                          fit: BoxFit.cover,
+                          placeholder: (_, _) => Container(
+                            height: 240,
+                            color: theme.colorScheme.surfaceContainerHighest,
+                            child: const Center(
+                              child: CircularProgressIndicator(),
+                            ),
+                          ),
+                          errorWidget: (_, _, _) => Container(
+                            height: 240,
+                            color: theme.colorScheme.surfaceContainerHighest,
+                            child: const Icon(Icons.broken_image, size: 48),
+                          ),
+                        ),
+                      ),
+                      Container(
+                        margin: const EdgeInsets.all(8),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 4,
+                        ),
+                        decoration: BoxDecoration(
+                          color: Colors.black.withOpacity(0.6),
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: const Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(Icons.zoom_in, color: Colors.white, size: 14),
+                            SizedBox(width: 4),
+                            Text(
+                              'Tap to Zoom',
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 11,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               const SizedBox(height: 16),
@@ -628,7 +743,10 @@ class _BlogDetailScreenState extends ConsumerState<BlogDetailScreen> {
                         visualDensity: VisualDensity.compact,
                         padding: const EdgeInsets.symmetric(horizontal: 8),
                       ),
-                      icon: const Icon(Icons.chat_bubble_outline_rounded, size: 14),
+                      icon: const Icon(
+                        Icons.chat_bubble_outline_rounded,
+                        size: 14,
+                      ),
                       label: const Text('Chat', style: TextStyle(fontSize: 12)),
                       onPressed: () async {
                         final convId = await ref
@@ -657,7 +775,9 @@ class _BlogDetailScreenState extends ConsumerState<BlogDetailScreen> {
                       visualDensity: VisualDensity.compact,
                       avatar: const Icon(Icons.tag, size: 14),
                       label: Text(tag),
-                      onPressed: () => context.push('/blog/topic?tag=${Uri.encodeComponent(tag)}'),
+                      onPressed: () => context.push(
+                        '/blog/topic?tag=${Uri.encodeComponent(tag)}',
+                      ),
                     );
                   }).toList(),
                 ),
@@ -722,29 +842,31 @@ class _BlogDetailScreenState extends ConsumerState<BlogDetailScreen> {
                             ],
                           ),
                           const SizedBox(height: 12),
-                          ...relatedList.map((relPost) => Card(
-                                margin: const EdgeInsets.only(bottom: 8),
-                                child: ListTile(
-                                  title: Text(
-                                    relPost.title,
-                                    maxLines: 2,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: const TextStyle(
-                                      fontWeight: FontWeight.w600,
-                                    ),
+                          ...relatedList.map(
+                            (relPost) => Card(
+                              margin: const EdgeInsets.only(bottom: 8),
+                              child: ListTile(
+                                title: Text(
+                                  relPost.title,
+                                  maxLines: 2,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.w600,
                                   ),
-                                  subtitle: Text(
-                                    '${relPost.categoryDisplayName} • ${relPost.readingTimeMinutes} min read',
-                                    style: theme.textTheme.bodySmall,
-                                  ),
-                                  trailing: const Icon(
-                                    Icons.arrow_forward_ios,
-                                    size: 14,
-                                  ),
-                                  onTap: () =>
-                                      context.push('/blog/${relPost.id}'),
                                 ),
-                              )),
+                                subtitle: Text(
+                                  '${relPost.categoryDisplayName} • ${relPost.readingTimeMinutes} min read',
+                                  style: theme.textTheme.bodySmall,
+                                ),
+                                trailing: const Icon(
+                                  Icons.arrow_forward_ios,
+                                  size: 14,
+                                ),
+                                onTap: () =>
+                                    context.push('/blog/${relPost.id}'),
+                              ),
+                            ),
+                          ),
                         ],
                       );
                     },
@@ -759,8 +881,10 @@ class _BlogDetailScreenState extends ConsumerState<BlogDetailScreen> {
               const SizedBox(height: 12),
               if (_replyingToComment != null) ...[
                 Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 8,
+                  ),
                   decoration: BoxDecoration(
                     color: theme.colorScheme.primaryContainer.withAlpha(140),
                     borderRadius: BorderRadius.circular(8),
@@ -1004,11 +1128,13 @@ class _BlogDetailScreenState extends ConsumerState<BlogDetailScreen> {
                       value: 'delete',
                       child: Row(
                         children: [
-                          Icon(Icons.delete_outline,
-                              size: 16, color: Colors.red),
+                          Icon(
+                            Icons.delete_outline,
+                            size: 16,
+                            color: Colors.red,
+                          ),
                           SizedBox(width: 8),
-                          Text('Delete',
-                              style: TextStyle(color: Colors.red)),
+                          Text('Delete', style: TextStyle(color: Colors.red)),
                         ],
                       ),
                     ),
@@ -1024,9 +1150,11 @@ class _BlogDetailScreenState extends ConsumerState<BlogDetailScreen> {
                             size: 16,
                           ),
                           const SizedBox(width: 8),
-                          Text(comment.isHidden
-                              ? 'Unhide Comment'
-                              : 'Hide Comment'),
+                          Text(
+                            comment.isHidden
+                                ? 'Unhide Comment'
+                                : 'Hide Comment',
+                          ),
                         ],
                       ),
                     ),
@@ -1035,8 +1163,11 @@ class _BlogDetailScreenState extends ConsumerState<BlogDetailScreen> {
                       value: 'chat',
                       child: Row(
                         children: [
-                          Icon(Icons.chat_bubble_outline_rounded,
-                              size: 16, color: Colors.teal),
+                          Icon(
+                            Icons.chat_bubble_outline_rounded,
+                            size: 16,
+                            color: Colors.teal,
+                          ),
                           SizedBox(width: 8),
                           Text('Direct Chat'),
                         ],
@@ -1046,8 +1177,11 @@ class _BlogDetailScreenState extends ConsumerState<BlogDetailScreen> {
                       value: 'report',
                       child: Row(
                         children: [
-                          Icon(Icons.flag_outlined,
-                              size: 16, color: Colors.orange),
+                          Icon(
+                            Icons.flag_outlined,
+                            size: 16,
+                            color: Colors.orange,
+                          ),
                           SizedBox(width: 8),
                           Text('Report'),
                         ],
@@ -1062,8 +1196,9 @@ class _BlogDetailScreenState extends ConsumerState<BlogDetailScreen> {
           Text(
             comment.body,
             style: theme.textTheme.bodyMedium?.copyWith(
-              color:
-                  comment.isHidden ? theme.colorScheme.onSurfaceVariant : null,
+              color: comment.isHidden
+                  ? theme.colorScheme.onSurfaceVariant
+                  : null,
               fontStyle: comment.isHidden ? FontStyle.italic : null,
             ),
           ),

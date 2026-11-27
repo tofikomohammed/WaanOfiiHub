@@ -155,8 +155,10 @@ class _MultiImageGalleryWidgetState extends State<MultiImageGalleryWidget> {
                 bottom: 12,
                 right: 16,
                 child: Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 4,
+                  ),
                   decoration: BoxDecoration(
                     color: Colors.black.withAlpha(150),
                     borderRadius: BorderRadius.circular(16),

@@ -1,5 +1,6 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 
@@ -23,8 +24,8 @@ class PostCard extends StatelessWidget {
     final dateStr = post.isScheduled && post.scheduledFor != null
         ? 'Scheduled for ${DateFormat.MMMd().add_jm().format(post.scheduledFor!.toLocal())}'
         : (post.publishedAt != null
-            ? DateFormat.yMMMd().format(post.publishedAt!)
-            : 'Draft');
+              ? DateFormat.yMMMd().format(post.publishedAt!)
+              : 'Draft');
 
     return Card(
       clipBehavior: Clip.antiAlias,
@@ -83,7 +84,9 @@ class PostCard extends StatelessWidget {
                           vertical: 4,
                         ),
                         decoration: BoxDecoration(
-                          color: theme.colorScheme.secondaryContainer.withAlpha(150),
+                          color: theme.colorScheme.secondaryContainer.withAlpha(
+                            150,
+                          ),
                           borderRadius: BorderRadius.circular(4),
                         ),
                         child: Text(
@@ -110,7 +113,11 @@ class PostCard extends StatelessWidget {
                           child: const Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              Icon(Icons.schedule, size: 10, color: Colors.purple),
+                              Icon(
+                                Icons.schedule,
+                                size: 10,
+                                color: Colors.purple,
+                              ),
                               SizedBox(width: 4),
                               Text(
                                 'SCHEDULED',
@@ -218,6 +225,21 @@ class PostCard extends StatelessWidget {
                       Text(
                         '${post.viewsCount}',
                         style: theme.textTheme.bodySmall,
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.share_outlined, size: 20),
+                        tooltip: 'Share Article',
+                        onPressed: () {
+                          final shareText =
+                              '${post.title}\n\nRead more on WAAN-OFIIHUB:\nhttps://waanofii.hub/blog/${post.id}';
+                          Clipboard.setData(ClipboardData(text: shareText));
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text('Post link copied to clipboard!'),
+                              duration: Duration(seconds: 2),
+                            ),
+                          );
+                        },
                       ),
                       if (onBookmarkToggle != null) ...[
                         const SizedBox(width: 8),

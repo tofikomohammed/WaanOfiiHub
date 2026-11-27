@@ -134,13 +134,16 @@ class BlogPost {
           (b) => (b as Map<String, dynamic>)['user_id'] == currentUserId,
         );
 
-    final parsedMedia = rawMedia
-        .map((m) => PostMedia.fromJson(
-              m as Map<String, dynamic>,
-              supabaseUrl: supabaseUrl,
-            ))
-        .toList()
-      ..sort((a, b) => a.sortOrder.compareTo(b.sortOrder));
+    final parsedMedia =
+        rawMedia
+            .map(
+              (m) => PostMedia.fromJson(
+                m as Map<String, dynamic>,
+                supabaseUrl: supabaseUrl,
+              ),
+            )
+            .toList()
+          ..sort((a, b) => a.sortOrder.compareTo(b.sortOrder));
 
     final parsedTags = rawTags.map((t) => t.toString()).toList();
     final likesTotal = json['likes_count'] as int? ?? likes.length;

@@ -55,10 +55,10 @@ class _AdminTaxonomiesScreenState extends ConsumerState<AdminTaxonomiesScreen>
                   hintText: 'e.g. Science & Nature',
                 ),
                 onChanged: (val) {
-                  slugCtrl.text = val
-                      .trim()
-                      .toLowerCase()
-                      .replaceAll(RegExp(r'[^a-z0-9]+'), '-');
+                  slugCtrl.text = val.trim().toLowerCase().replaceAll(
+                    RegExp(r'[^a-z0-9]+'),
+                    '-',
+                  );
                 },
               ),
               const SizedBox(height: 12),
@@ -95,7 +95,9 @@ class _AdminTaxonomiesScreenState extends ConsumerState<AdminTaxonomiesScreen>
 
     if (confirmed == true && nameCtrl.text.trim().isNotEmpty && mounted) {
       try {
-        await ref.read(blogRepositoryProvider).createCategory(
+        await ref
+            .read(blogRepositoryProvider)
+            .createCategory(
               name: nameCtrl.text.trim(),
               slug: slugCtrl.text.trim().toLowerCase(),
               description: descCtrl.text.trim(),
@@ -149,7 +151,9 @@ class _AdminTaxonomiesScreenState extends ConsumerState<AdminTaxonomiesScreen>
 
     if (confirmed == true && nameCtrl.text.trim().isNotEmpty && mounted) {
       try {
-        await ref.read(blogRepositoryProvider).renameCategory(
+        await ref
+            .read(blogRepositoryProvider)
+            .renameCategory(
               id: cat.id,
               newName: nameCtrl.text.trim(),
               newSlug: slugCtrl.text.trim().toLowerCase(),
@@ -170,8 +174,9 @@ class _AdminTaxonomiesScreenState extends ConsumerState<AdminTaxonomiesScreen>
     BlogCategory sourceCat,
     List<BlogCategory> allCats,
   ) async {
-    final availableTargets =
-        allCats.where((c) => c.slug != sourceCat.slug).toList();
+    final availableTargets = allCats
+        .where((c) => c.slug != sourceCat.slug)
+        .toList();
     if (availableTargets.isEmpty) return;
 
     String targetSlug = availableTargets.first.slug;
@@ -194,10 +199,7 @@ class _AdminTaxonomiesScreenState extends ConsumerState<AdminTaxonomiesScreen>
                 value: targetSlug,
                 decoration: const InputDecoration(labelText: 'Target Category'),
                 items: availableTargets.map((c) {
-                  return DropdownMenuItem(
-                    value: c.slug,
-                    child: Text(c.name),
-                  );
+                  return DropdownMenuItem(value: c.slug, child: Text(c.name));
                 }).toList(),
                 onChanged: (val) {
                   if (val != null) setDialogState(() => targetSlug = val);
@@ -221,7 +223,9 @@ class _AdminTaxonomiesScreenState extends ConsumerState<AdminTaxonomiesScreen>
 
     if (confirmed == true && mounted) {
       try {
-        await ref.read(blogRepositoryProvider).mergeCategories(
+        await ref
+            .read(blogRepositoryProvider)
+            .mergeCategories(
               sourceSlug: sourceCat.slug,
               targetSlug: targetSlug,
             );
@@ -261,13 +265,11 @@ class _AdminTaxonomiesScreenState extends ConsumerState<AdminTaxonomiesScreen>
               const SizedBox(height: 16),
               DropdownButtonFormField<String>(
                 value: fallbackSlug,
-                decoration:
-                    const InputDecoration(labelText: 'Fallback Category'),
+                decoration: const InputDecoration(
+                  labelText: 'Fallback Category',
+                ),
                 items: fallbacks.map((c) {
-                  return DropdownMenuItem(
-                    value: c.slug,
-                    child: Text(c.name),
-                  );
+                  return DropdownMenuItem(value: c.slug, child: Text(c.name));
                 }).toList(),
                 onChanged: (val) {
                   if (val != null) setDialogState(() => fallbackSlug = val);
@@ -292,10 +294,9 @@ class _AdminTaxonomiesScreenState extends ConsumerState<AdminTaxonomiesScreen>
 
     if (confirmed == true && mounted) {
       try {
-        await ref.read(blogRepositoryProvider).deleteCategory(
-              slug: cat.slug,
-              fallbackSlug: fallbackSlug,
-            );
+        await ref
+            .read(blogRepositoryProvider)
+            .deleteCategory(slug: cat.slug, fallbackSlug: fallbackSlug);
         ref.invalidate(categoriesListProvider);
         ref.invalidate(blogFeedProvider);
         if (mounted) {
@@ -390,7 +391,9 @@ class _AdminTaxonomiesScreenState extends ConsumerState<AdminTaxonomiesScreen>
 
     if (confirmed == true && nameCtrl.text.trim().isNotEmpty && mounted) {
       try {
-        await ref.read(blogRepositoryProvider).renameTag(
+        await ref
+            .read(blogRepositoryProvider)
+            .renameTag(
               id: tag.id,
               newName: nameCtrl.text.trim(),
               newSlug: slugCtrl.text.trim().toLowerCase(),
@@ -411,8 +414,9 @@ class _AdminTaxonomiesScreenState extends ConsumerState<AdminTaxonomiesScreen>
     BlogTag sourceTag,
     List<BlogTag> allTags,
   ) async {
-    final availableTargets =
-        allTags.where((t) => t.name != sourceTag.name).toList();
+    final availableTargets = allTags
+        .where((t) => t.name != sourceTag.name)
+        .toList();
     if (availableTargets.isEmpty) return;
 
     String targetName = availableTargets.first.name;
@@ -462,10 +466,9 @@ class _AdminTaxonomiesScreenState extends ConsumerState<AdminTaxonomiesScreen>
 
     if (confirmed == true && mounted) {
       try {
-        await ref.read(blogRepositoryProvider).mergeTags(
-              sourceName: sourceTag.name,
-              targetName: targetName,
-            );
+        await ref
+            .read(blogRepositoryProvider)
+            .mergeTags(sourceName: sourceTag.name, targetName: targetName);
         ref.invalidate(tagsListProvider);
         ref.invalidate(blogFeedProvider);
         if (mounted) {
@@ -552,14 +555,16 @@ class _AdminTaxonomiesScreenState extends ConsumerState<AdminTaxonomiesScreen>
                   return const EmptyState(
                     icon: Icons.category_outlined,
                     title: 'No Categories Found',
-                    subtitle: 'Create your first category using the button below.',
+                    subtitle:
+                        'Create your first category using the button below.',
                   );
                 }
 
                 return ListView.separated(
                   padding: const EdgeInsets.all(16.0),
                   itemCount: categories.length,
-                  separatorBuilder: (context, index) => const SizedBox(height: 8),
+                  separatorBuilder: (context, index) =>
+                      const SizedBox(height: 8),
                   itemBuilder: (context, index) {
                     final cat = categories[index];
                     return Card(
@@ -567,7 +572,9 @@ class _AdminTaxonomiesScreenState extends ConsumerState<AdminTaxonomiesScreen>
                         leading: CircleAvatar(
                           backgroundColor: theme.colorScheme.primaryContainer,
                           child: Text(
-                            cat.name.isNotEmpty ? cat.name[0].toUpperCase() : 'C',
+                            cat.name.isNotEmpty
+                                ? cat.name[0].toUpperCase()
+                                : 'C',
                             style: TextStyle(
                               color: theme.colorScheme.onPrimaryContainer,
                               fontWeight: FontWeight.bold,
@@ -618,11 +625,16 @@ class _AdminTaxonomiesScreenState extends ConsumerState<AdminTaxonomiesScreen>
                               value: 'delete',
                               child: Row(
                                 children: [
-                                  Icon(Icons.delete_outline,
-                                      color: Colors.red, size: 18),
+                                  Icon(
+                                    Icons.delete_outline,
+                                    color: Colors.red,
+                                    size: 18,
+                                  ),
                                   SizedBox(width: 8),
-                                  Text('Delete safely',
-                                      style: TextStyle(color: Colors.red)),
+                                  Text(
+                                    'Delete safely',
+                                    style: TextStyle(color: Colors.red),
+                                  ),
                                 ],
                               ),
                             ),
@@ -657,14 +669,14 @@ class _AdminTaxonomiesScreenState extends ConsumerState<AdminTaxonomiesScreen>
                 return ListView.separated(
                   padding: const EdgeInsets.all(16.0),
                   itemCount: tags.length,
-                  separatorBuilder: (context, index) => const SizedBox(height: 8),
+                  separatorBuilder: (context, index) =>
+                      const SizedBox(height: 8),
                   itemBuilder: (context, index) {
                     final tag = tags[index];
                     return Card(
                       child: ListTile(
                         leading: CircleAvatar(
-                          backgroundColor:
-                              theme.colorScheme.secondaryContainer,
+                          backgroundColor: theme.colorScheme.secondaryContainer,
                           child: const Icon(Icons.tag_rounded, size: 20),
                         ),
                         title: Text(
@@ -707,11 +719,16 @@ class _AdminTaxonomiesScreenState extends ConsumerState<AdminTaxonomiesScreen>
                               value: 'delete',
                               child: Row(
                                 children: [
-                                  Icon(Icons.delete_outline,
-                                      color: Colors.red, size: 18),
+                                  Icon(
+                                    Icons.delete_outline,
+                                    color: Colors.red,
+                                    size: 18,
+                                  ),
                                   SizedBox(width: 8),
-                                  Text('Delete',
-                                      style: TextStyle(color: Colors.red)),
+                                  Text(
+                                    'Delete',
+                                    style: TextStyle(color: Colors.red),
+                                  ),
                                 ],
                               ),
                             ),
@@ -728,9 +745,7 @@ class _AdminTaxonomiesScreenState extends ConsumerState<AdminTaxonomiesScreen>
       ),
       floatingActionButton: FloatingActionButton.extended(
         icon: const Icon(Icons.add),
-        label: Text(
-          _tabController.index == 0 ? 'New Category' : 'New Tag',
-        ),
+        label: Text(_tabController.index == 0 ? 'New Category' : 'New Tag'),
         onPressed: () {
           if (_tabController.index == 0) {
             _showCreateCategoryDialog();

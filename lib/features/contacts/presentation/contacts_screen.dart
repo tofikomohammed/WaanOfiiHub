@@ -46,7 +46,9 @@ class ContactsScreen extends ConsumerWidget {
           if (contacts.isEmpty) {
             return EmptyState(
               icon: Icons.contacts_outlined,
-              title: kIsWeb ? 'Find Friends & Chat' : 'No Contacts on WAAN-OFIIHUB',
+              title: kIsWeb
+                  ? 'Find Friends & Chat'
+                  : 'No Contacts on WAAN-OFIIHUB',
               subtitle: kIsWeb
                   ? 'Device phone contacts are supported on Android & iOS. On Web, find and connect with friends using their unique Public ID.'
                   : 'Sync your phonebook to find friends or invite them via share link.',

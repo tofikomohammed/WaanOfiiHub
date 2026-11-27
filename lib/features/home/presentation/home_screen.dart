@@ -868,7 +868,8 @@ class HomeScreen extends ConsumerWidget {
                             vertical: 2,
                           ),
                           decoration: BoxDecoration(
-                            color: theme.colorScheme.secondaryContainer.withAlpha(128),
+                            color: theme.colorScheme.secondaryContainer
+                                .withAlpha(128),
                             borderRadius: BorderRadius.circular(6),
                           ),
                           child: Text(

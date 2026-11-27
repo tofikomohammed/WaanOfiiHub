@@ -62,7 +62,9 @@ class _BlogCreateScreenState extends ConsumerState<BlogCreateScreen> {
     if (combined.isBefore(DateTime.now())) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Scheduled time must be in the future.')),
+          const SnackBar(
+            content: Text('Scheduled time must be in the future.'),
+          ),
         );
       }
       return;
@@ -102,7 +104,9 @@ class _BlogCreateScreenState extends ConsumerState<BlogCreateScreen> {
     });
 
     try {
-      final item = await ref.read(blogStorageServiceProvider).pickAndUploadCoverImage(
+      final item = await ref
+          .read(blogStorageServiceProvider)
+          .pickAndUploadCoverImage(
             authorId: uid,
             source: source,
             onProgress: (prog, status) {
@@ -163,9 +167,7 @@ class _BlogCreateScreenState extends ConsumerState<BlogCreateScreen> {
           }
         });
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('${items.length} images added to gallery.'),
-          ),
+          SnackBar(content: Text('${items.length} images added to gallery.')),
         );
       }
     } catch (e) {
@@ -192,7 +194,9 @@ class _BlogCreateScreenState extends ConsumerState<BlogCreateScreen> {
 
     try {
       final bytes = await xFile.readAsBytes();
-      final item = await ref.read(blogStorageServiceProvider).uploadAudio(
+      final item = await ref
+          .read(blogStorageServiceProvider)
+          .uploadAudio(
             authorId: uid,
             fileName: xFile.name,
             bytes: bytes,
@@ -212,7 +216,9 @@ class _BlogCreateScreenState extends ConsumerState<BlogCreateScreen> {
           _coverUrlController.text = item.publicUrl;
         });
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Audio uploaded and ready for preview!')),
+          const SnackBar(
+            content: Text('Audio uploaded and ready for preview!'),
+          ),
         );
       }
     } catch (e) {
@@ -234,8 +240,9 @@ class _BlogCreateScreenState extends ConsumerState<BlogCreateScreen> {
     setState(() {
       final removed = _galleryItems.removeAt(index);
       if (_coverUrlController.text == removed.publicUrl) {
-        _coverUrlController.text =
-            _galleryItems.isNotEmpty ? _galleryItems.first.publicUrl : '';
+        _coverUrlController.text = _galleryItems.isNotEmpty
+            ? _galleryItems.first.publicUrl
+            : '';
       }
     });
   }
@@ -244,9 +251,9 @@ class _BlogCreateScreenState extends ConsumerState<BlogCreateScreen> {
     setState(() {
       _coverUrlController.text = _galleryItems[index].publicUrl;
     });
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Set as post cover image!')),
-    );
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(const SnackBar(content: Text('Set as post cover image!')));
   }
 
   Future<void> _handleCreate() async {
@@ -260,7 +267,9 @@ class _BlogCreateScreenState extends ConsumerState<BlogCreateScreen> {
           .where((t) => t.isNotEmpty)
           .toList();
 
-      await ref.read(blogRepositoryProvider).createPost(
+      await ref
+          .read(blogRepositoryProvider)
+          .createPost(
             title: _titleController.text.trim(),
             body: _bodyController.text.trim(),
             type: _selectedType,
@@ -274,8 +283,8 @@ class _BlogCreateScreenState extends ConsumerState<BlogCreateScreen> {
             galleryMedia: _selectedType == 'image'
                 ? _galleryItems
                 : (_selectedType == 'audio' && _audioItem != null
-                    ? [_audioItem!]
-                    : []),
+                      ? [_audioItem!]
+                      : []),
           );
 
       ref.invalidate(blogFeedProvider);
@@ -289,8 +298,8 @@ class _BlogCreateScreenState extends ConsumerState<BlogCreateScreen> {
               _isScheduled
                   ? 'Post scheduled for publication!'
                   : (_publishNow
-                      ? 'Post published successfully!'
-                      : 'Draft saved to My Drafts.'),
+                        ? 'Post published successfully!'
+                        : 'Draft saved to My Drafts.'),
             ),
           ),
         );
@@ -376,7 +385,8 @@ class _BlogCreateScreenState extends ConsumerState<BlogCreateScreen> {
                         );
                       }).toList(),
                       onChanged: (val) {
-                        if (val != null) setState(() => _selectedCategory = val);
+                        if (val != null)
+                          setState(() => _selectedCategory = val);
                       },
                     ),
                   ),
@@ -483,8 +493,9 @@ class _BlogCreateScreenState extends ConsumerState<BlogCreateScreen> {
                       ),
                     ),
                     FilledButton.tonalIcon(
-                      onPressed:
-                          _isUploadingMedia ? null : _handlePickGalleryImages,
+                      onPressed: _isUploadingMedia
+                          ? null
+                          : _handlePickGalleryImages,
                       icon: const Icon(Icons.add_photo_alternate_outlined),
                       label: const Text('Add Images'),
                     ),
@@ -502,7 +513,9 @@ class _BlogCreateScreenState extends ConsumerState<BlogCreateScreen> {
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: const Center(
-                      child: Text('No images in gallery yet. Tap "Add Images".'),
+                      child: Text(
+                        'No images in gallery yet. Tap "Add Images".',
+                      ),
                     ),
                   )
                 else
@@ -562,8 +575,10 @@ class _BlogCreateScreenState extends ConsumerState<BlogCreateScreen> {
                                 child: const Text('Set Cover'),
                               ),
                             IconButton(
-                              icon: const Icon(Icons.delete_outline,
-                                  color: Colors.red),
+                              icon: const Icon(
+                                Icons.delete_outline,
+                                color: Colors.red,
+                              ),
                               onPressed: () => _removeGalleryItem(index),
                             ),
                             const Icon(Icons.drag_handle),
@@ -644,8 +659,8 @@ class _BlogCreateScreenState extends ConsumerState<BlogCreateScreen> {
                   !canPublish
                       ? 'You lack publishing permissions. Saved as draft for review.'
                       : (_publishNow
-                          ? 'Visible immediately to all readers'
-                          : 'Save as draft or schedule for later'),
+                            ? 'Visible immediately to all readers'
+                            : 'Save as draft or schedule for later'),
                 ),
                 value: canPublish && _publishNow,
                 onChanged: !canPublish

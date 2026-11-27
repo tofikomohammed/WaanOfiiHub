@@ -15,9 +15,7 @@ class MyBookmarksScreen extends ConsumerWidget {
     final bookmarksAsync = ref.watch(myBookmarksProvider);
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Saved Articles'),
-      ),
+      appBar: AppBar(title: const Text('Saved Articles')),
       body: RefreshIndicator(
         onRefresh: () async => ref.invalidate(myBookmarksProvider),
         child: bookmarksAsync.when(
@@ -32,8 +30,7 @@ class MyBookmarksScreen extends ConsumerWidget {
               return const EmptyState(
                 icon: Icons.bookmark_border_rounded,
                 title: 'No Bookmarks Yet',
-                subtitle:
-                    'Tap the bookmark icon on any article to save it for later reading.',
+                subtitle: 'Tap the bookmark icon on any article to save it for later reading.',
               );
             }
 

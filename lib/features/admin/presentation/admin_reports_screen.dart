@@ -125,13 +125,14 @@ class _AdminReportsScreenState extends ConsumerState<AdminReportsScreen> {
                 final createdAtStr = report['created_at'] as String?;
                 final dateStr = createdAtStr != null
                     ? DateFormat.yMMMd().add_jm().format(
-                          DateTime.parse(createdAtStr).toLocal(),
-                        )
+                        DateTime.parse(createdAtStr).toLocal(),
+                      )
                     : '';
 
                 final reporter = report['reporter'] as Map<String, dynamic>?;
                 final reporterName =
-                    reporter?['display_name'] as String? ?? 'Anonymous Reporter';
+                    reporter?['display_name'] as String? ??
+                    'Anonymous Reporter';
 
                 final post = report['post'] as Map<String, dynamic>?;
                 final comment = report['comment'] as Map<String, dynamic>?;
@@ -175,7 +176,8 @@ class _AdminReportsScreenState extends ConsumerState<AdminReportsScreen> {
                                 vertical: 4,
                               ),
                               decoration: BoxDecoration(
-                                color: theme.colorScheme.surfaceContainerHighest,
+                                color:
+                                    theme.colorScheme.surfaceContainerHighest,
                                 borderRadius: BorderRadius.circular(6),
                               ),
                               child: Text(
@@ -188,10 +190,7 @@ class _AdminReportsScreenState extends ConsumerState<AdminReportsScreen> {
                               ),
                             ),
                             const Spacer(),
-                            Text(
-                              dateStr,
-                              style: theme.textTheme.bodySmall,
-                            ),
+                            Text(dateStr, style: theme.textTheme.bodySmall),
                           ],
                         ),
                         const SizedBox(height: 12),

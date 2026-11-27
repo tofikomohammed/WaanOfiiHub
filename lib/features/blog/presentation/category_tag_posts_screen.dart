@@ -24,26 +24,20 @@ class TopicParams {
 }
 
 final categoryTagPostsProvider =
-    FutureProvider.family<List<BlogPost>, TopicParams>(
-  (ref, params) async {
-    final repo = ref.watch(blogRepositoryProvider);
-    return repo.getPublishedPosts(
-      category: params.category,
-      tag: params.tag,
-      limit: 50,
-    );
-  },
-);
+    FutureProvider.family<List<BlogPost>, TopicParams>((ref, params) async {
+      final repo = ref.watch(blogRepositoryProvider);
+      return repo.getPublishedPosts(
+        category: params.category,
+        tag: params.tag,
+        limit: 50,
+      );
+    });
 
 class CategoryTagPostsScreen extends ConsumerWidget {
   final String? category;
   final String? tag;
 
-  const CategoryTagPostsScreen({
-    super.key,
-    this.category,
-    this.tag,
-  });
+  const CategoryTagPostsScreen({super.key, this.category, this.tag});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -59,9 +53,7 @@ class CategoryTagPostsScreen extends ConsumerWidget {
     final postsAsync = ref.watch(categoryTagPostsProvider(params));
 
     return Scaffold(
-      appBar: AppBar(
-        title: Text(title),
-      ),
+      appBar: AppBar(title: Text(title)),
       body: Column(
         children: [
           // Header Banner
@@ -84,9 +76,7 @@ class CategoryTagPostsScreen extends ConsumerWidget {
                 Row(
                   children: [
                     Icon(
-                      isCategory
-                          ? Icons.category_outlined
-                          : Icons.tag_rounded,
+                      isCategory ? Icons.category_outlined : Icons.tag_rounded,
                       color: theme.colorScheme.primary,
                       size: 28,
                     ),
@@ -117,7 +107,8 @@ class CategoryTagPostsScreen extends ConsumerWidget {
           // Posts Feed
           Expanded(
             child: RefreshIndicator(
-              onRefresh: () async => ref.invalidate(categoryTagPostsProvider(params)),
+              onRefresh: () async =>
+                  ref.invalidate(categoryTagPostsProvider(params)),
               child: postsAsync.when(
                 loading: () =>
                     const LoadingIndicator(message: 'Loading posts...'),

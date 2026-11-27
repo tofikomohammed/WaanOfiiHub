@@ -149,28 +149,31 @@ void main() {
       expect(post.scheduledFor!.toUtc().toIso8601String(), scheduledIso);
     });
 
-    test('BlogPost copyWith preserves or updates scheduled status and date', () {
-      final post = BlogPost(
-        id: 'p-1',
-        authorId: 'auth-1',
-        type: 'text',
-        title: 'Draft Post',
-        status: 'draft',
-        createdAt: DateTime.now(),
-      );
+    test(
+      'BlogPost copyWith preserves or updates scheduled status and date',
+      () {
+        final post = BlogPost(
+          id: 'p-1',
+          authorId: 'auth-1',
+          type: 'text',
+          title: 'Draft Post',
+          status: 'draft',
+          createdAt: DateTime.now(),
+        );
 
-      expect(post.isScheduled, isFalse);
+        expect(post.isScheduled, isFalse);
 
-      final scheduledTime = DateTime.now().add(const Duration(hours: 12));
-      final updated = post.copyWith(
-        status: 'scheduled',
-        scheduledFor: scheduledTime,
-      );
+        final scheduledTime = DateTime.now().add(const Duration(hours: 12));
+        final updated = post.copyWith(
+          status: 'scheduled',
+          scheduledFor: scheduledTime,
+        );
 
-      expect(updated.isScheduled, isTrue);
-      expect(updated.status, 'scheduled');
-      expect(updated.scheduledFor, scheduledTime);
-    });
+        expect(updated.isScheduled, isTrue);
+        expect(updated.status, 'scheduled');
+        expect(updated.scheduledFor, scheduledTime);
+      },
+    );
   });
 
   group('Blog Extras - View Counts', () {

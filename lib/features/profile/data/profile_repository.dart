@@ -25,18 +25,13 @@ class ProfileRepository {
     final client = _client;
     if (client == null) return [];
     final currentUserId = client.auth.currentUser?.id;
-    var query = client
-        .from('profiles')
-        .select()
-        .eq('is_banned', false);
+    var query = client.from('profiles').select().eq('is_banned', false);
 
     if (currentUserId != null) {
       query = query.neq('id', currentUserId);
     }
 
-    final res = await query
-        .order('created_at', ascending: false)
-        .limit(limit);
+    final res = await query.order('created_at', ascending: false).limit(limit);
 
     return (res as List).map((e) => UserProfile.fromJson(e)).toList();
   }

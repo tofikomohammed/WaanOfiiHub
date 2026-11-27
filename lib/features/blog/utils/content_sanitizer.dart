@@ -1,7 +1,9 @@
 /// Utility to validate and sanitize user-generated content for blog posts, comments, and tags.
 class ContentSanitizer {
   static final RegExp _htmlTagRegex = RegExp(r'<[^>]*>', multiLine: true);
-  static final RegExp _controlCharsRegex = RegExp(r'[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]');
+  static final RegExp _controlCharsRegex = RegExp(
+    r'[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]',
+  );
 
   /// Sanitizes post title: strips HTML, strips control characters, collapses whitespace, limits to 200 chars.
   static String sanitizeTitle(String raw) {

@@ -9,46 +9,49 @@ import 'package:waan_ofii_hub/features/blog/models/post_media.dart';
 
 void main() {
   group('BlogRepository Unit Tests', () {
-    test('safely handles uninitialized/null Supabase client without crashing', () async {
-      final repo = BlogRepository(null);
+    test(
+      'safely handles uninitialized/null Supabase client without crashing',
+      () async {
+        final repo = BlogRepository(null);
 
-      expect(repo.currentUserId, isNull);
+        expect(repo.currentUserId, isNull);
 
-      final published = await repo.getPublishedPosts();
-      expect(published, isEmpty);
+        final published = await repo.getPublishedPosts();
+        expect(published, isEmpty);
 
-      final drafts = await repo.getMyDrafts();
-      expect(drafts, isEmpty);
+        final drafts = await repo.getMyDrafts();
+        expect(drafts, isEmpty);
 
-      final post = await repo.getPostById('non-existent');
-      expect(post, isNull);
+        final post = await repo.getPostById('non-existent');
+        expect(post, isNull);
 
-      final comments = await repo.getComments('non-existent');
-      expect(comments, isEmpty);
+        final comments = await repo.getComments('non-existent');
+        expect(comments, isEmpty);
 
-      // Mutative calls should complete cleanly as no-ops
-      await repo.toggleLike('p1', false);
-      await repo.addComment('p1', 'Nice post');
-      final newId = await repo.createPost(
-        title: 'Title',
-        body: 'Body',
-        type: 'text',
-      );
-      expect(newId, isNull);
+        // Mutative calls should complete cleanly as no-ops
+        await repo.toggleLike('p1', false);
+        await repo.addComment('p1', 'Nice post');
+        final newId = await repo.createPost(
+          title: 'Title',
+          body: 'Body',
+          type: 'text',
+        );
+        expect(newId, isNull);
 
-      await repo.updatePost(
-        id: 'p1',
-        title: 'New',
-        body: 'New Body',
-        type: 'text',
-        category: 'news',
-      );
-      await repo.deletePost('p1');
-      await repo.deletePostMedia('m1', 'path/to/media.jpg');
-      await repo.updateMediaOrder([]);
-      await repo.setPostCover('p1', 'https://cover.jpg');
-      await repo.setPostStatus('p1', 'archived');
-    });
+        await repo.updatePost(
+          id: 'p1',
+          title: 'New',
+          body: 'New Body',
+          type: 'text',
+          category: 'news',
+        );
+        await repo.deletePost('p1');
+        await repo.deletePostMedia('m1', 'path/to/media.jpg');
+        await repo.updateMediaOrder([]);
+        await repo.setPostCover('p1', 'https://cover.jpg');
+        await repo.setPostStatus('p1', 'archived');
+      },
+    );
 
     test('BlogPost separates imageMedia and audioMedia correctly', () {
       const media1 = PostMedia(
@@ -128,7 +131,8 @@ void main() {
 
       // Size limit exceeding 10MB throws
       expect(
-        () => BlogStorageService.validateImageFile('large.jpg', 11 * 1024 * 1024),
+        () =>
+            BlogStorageService.validateImageFile('large.jpg', 11 * 1024 * 1024),
         throwsA(isA<AppException>()),
       );
     });
@@ -160,7 +164,8 @@ void main() {
 
       // Size limit exceeding 25MB throws
       expect(
-        () => BlogStorageService.validateAudioFile('huge.mp3', 26 * 1024 * 1024),
+        () =>
+            BlogStorageService.validateAudioFile('huge.mp3', 26 * 1024 * 1024),
         throwsA(isA<AppException>()),
       );
     });
