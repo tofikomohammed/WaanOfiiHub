@@ -19,6 +19,64 @@ class BlogRepository {
   String? get currentUserId => _client?.auth.currentUser?.id;
   String get supabaseUrl => EnvConfig.supabaseUrl;
 
+  Future<void> _enrichPostProfiles(List<Map<String, dynamic>> rawPosts) async {
+    if (_client == null || rawPosts.isEmpty) return;
+    final authorIds = rawPosts
+        .map((p) => p['author_id'] as String?)
+        .whereType<String>()
+        .toSet()
+        .toList();
+    if (authorIds.isEmpty) return;
+    try {
+      final profilesRes = await _client
+          .from('profiles')
+          .select('id, display_name, avatar_url')
+          .inFilter('id', authorIds);
+      final profileMap = {
+        for (final p in (profilesRes as List<dynamic>))
+          (p as Map<String, dynamic>)['id'] as String: p,
+      };
+      for (final p in rawPosts) {
+        final authorId = p['author_id'] as String?;
+        if (authorId != null && profileMap.containsKey(authorId)) {
+          p['profiles'] = profileMap[authorId];
+        }
+      }
+    } catch (_) {
+      // Graceful fallback to default 'Admin' if profiles fetch fails
+    }
+  }
+
+  Future<void> _enrichCommentProfiles(
+    List<Map<String, dynamic>> rawComments,
+  ) async {
+    if (_client == null || rawComments.isEmpty) return;
+    final userIds = rawComments
+        .map((c) => c['user_id'] as String?)
+        .whereType<String>()
+        .toSet()
+        .toList();
+    if (userIds.isEmpty) return;
+    try {
+      final profilesRes = await _client
+          .from('profiles')
+          .select('id, display_name, avatar_url')
+          .inFilter('id', userIds);
+      final profileMap = {
+        for (final p in (profilesRes as List<dynamic>))
+          (p as Map<String, dynamic>)['id'] as String: p,
+      };
+      for (final c in rawComments) {
+        final userId = c['user_id'] as String?;
+        if (userId != null && profileMap.containsKey(userId)) {
+          c['profiles'] = profileMap[userId];
+        }
+      }
+    } catch (_) {
+      // Graceful fallback to default 'User'
+    }
+  }
+
   /// Fetch published posts with optional category, type, tag, date and search filtering
   Future<List<BlogPost>> getPublishedPosts({
     String? category,
@@ -36,7 +94,7 @@ class BlogRepository {
     var query = _client
         .from('posts')
         .select(
-          '*, profiles:author_id(display_name, avatar_url), post_likes(user_id), post_bookmarks(user_id), post_media(*)',
+          '*, post_likes(user_id), post_bookmarks(user_id), post_media(*)',
         )
         .eq('status', 'published');
 
@@ -92,8 +150,10 @@ class BlogRepository {
     }
 
     final res = await orderedQuery.range(offset, offset + limit - 1);
+    final rawList = List<Map<String, dynamic>>.from(res as List);
+    await _enrichPostProfiles(rawList);
 
-    return (res as List)
+    return rawList
         .map(
           (e) => BlogPost.fromJson(
             e,
@@ -119,13 +179,16 @@ class BlogRepository {
     final res = await _client
         .from('posts')
         .select(
-          '*, profiles:author_id(display_name, avatar_url), post_likes(user_id), post_bookmarks(user_id), post_media(*)',
+          '*, post_likes(user_id), post_bookmarks(user_id), post_media(*)',
         )
         .eq('author_id', uid)
         .inFilter('status', ['draft', 'scheduled'])
         .order('created_at', ascending: false);
 
-    return (res as List)
+    final rawList = List<Map<String, dynamic>>.from(res as List);
+    await _enrichPostProfiles(rawList);
+
+    return rawList
         .map(
           (e) => BlogPost.fromJson(
             e,
@@ -161,13 +224,19 @@ class BlogRepository {
     final res = await _client
         .from('posts')
         .select(
-          '*, profiles:author_id(display_name, avatar_url), post_likes(user_id), post_bookmarks(user_id), post_media(*)',
+          '*, post_likes(user_id), post_bookmarks(user_id), post_media(*)',
         )
         .eq('id', id)
         .maybeSingle();
 
     if (res == null) return null;
-    return BlogPost.fromJson(res, currentUserId: uid, supabaseUrl: supabaseUrl);
+    final rawMap = Map<String, dynamic>.from(res);
+    await _enrichPostProfiles([rawMap]);
+    return BlogPost.fromJson(
+      rawMap,
+      currentUserId: uid,
+      supabaseUrl: supabaseUrl,
+    );
   }
 
   /// Toggle like on post
@@ -217,16 +286,23 @@ class BlogRepository {
     final res = await _client
         .from('post_bookmarks')
         .select(
-          'posts(*, profiles:posts.author_id(display_name, avatar_url), post_likes(user_id), post_bookmarks(user_id), post_media(*))',
+          'posts(*, post_likes(user_id), post_bookmarks(user_id), post_media(*))',
         )
         .eq('user_id', uid)
         .order('created_at', ascending: false);
 
-    return (res as List)
+    final postList = (res as List)
         .where((e) => e['posts'] != null)
         .map(
+          (e) => Map<String, dynamic>.from(e['posts'] as Map<String, dynamic>),
+        )
+        .toList();
+    await _enrichPostProfiles(postList);
+
+    return postList
+        .map(
           (e) => BlogPost.fromJson(
-            e['posts'] as Map<String, dynamic>,
+            e,
             currentUserId: uid,
             supabaseUrl: supabaseUrl,
           ),
@@ -283,11 +359,14 @@ class BlogRepository {
     if (_client == null) return [];
     final res = await _client
         .from('post_comments')
-        .select('*, profiles:user_id(display_name, avatar_url)')
+        .select('*')
         .eq('post_id', postId)
         .order('created_at', ascending: true);
 
-    return (res as List).map((e) => PostComment.fromJson(e)).toList();
+    final rawList = List<Map<String, dynamic>>.from(res as List);
+    await _enrichCommentProfiles(rawList);
+
+    return rawList.map((e) => PostComment.fromJson(e)).toList();
   }
 
   /// Add comment or reply to post with input sanitization
@@ -688,7 +767,7 @@ class BlogRepository {
     var query = _client
         .from('posts')
         .select(
-          '*, profiles:author_id(display_name, avatar_url), post_likes(user_id), post_bookmarks(user_id), post_media(*)',
+          '*, post_likes(user_id), post_bookmarks(user_id), post_media(*)',
         );
 
     if (status != null && status.isNotEmpty && status != 'all') {
@@ -709,7 +788,10 @@ class BlogRepository {
         .order('created_at', ascending: false)
         .range(offset, offset + limit - 1);
 
-    return (res as List)
+    final rawList = List<Map<String, dynamic>>.from(res as List);
+    await _enrichPostProfiles(rawList);
+
+    return rawList
         .map(
           (e) => BlogPost.fromJson(
             e,
@@ -732,9 +814,7 @@ class BlogRepository {
 
     var query = _client
         .from('posts')
-        .select(
-          '*, profiles:author_id(display_name, avatar_url), post_likes(user_id), post_comments(id), post_media(*)',
-        )
+        .select('*, post_likes(user_id), post_comments(id), post_media(*)')
         .eq('status', 'published')
         .neq('id', postId);
 
@@ -746,7 +826,10 @@ class BlogRepository {
         .order('published_at', ascending: false)
         .limit(limit);
 
-    return (res as List)
+    final rawList = List<Map<String, dynamic>>.from(res as List);
+    await _enrichPostProfiles(rawList);
+
+    return rawList
         .map(
           (e) => BlogPost.fromJson(
             e,

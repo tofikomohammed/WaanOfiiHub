@@ -304,6 +304,7 @@ class _AdminPostsScreenState extends ConsumerState<AdminPostsScreen> {
                     const LoadingIndicator(message: 'Loading articles...'),
                 error: (err, stack) => ErrorView(
                   message: 'Unable to load articles',
+                  technicalDetails: err.toString(),
                   onRetry: _refreshList,
                 ),
                 data: (posts) {

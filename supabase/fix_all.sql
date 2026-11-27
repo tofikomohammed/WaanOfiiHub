@@ -1005,6 +1005,26 @@ BEGIN
     END IF;
 END $$;
 
+-- Ensure relational integrity between posts/comments and profiles
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'fk_posts_author_profile') THEN
+        ALTER TABLE public.posts
+            ADD CONSTRAINT fk_posts_author_profile
+            FOREIGN KEY (author_id)
+            REFERENCES public.profiles(id)
+            ON DELETE CASCADE;
+    END IF;
+
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'fk_post_comments_user_profile') THEN
+        ALTER TABLE public.post_comments
+            ADD CONSTRAINT fk_post_comments_user_profile
+            FOREIGN KEY (user_id)
+            REFERENCES public.profiles(id)
+            ON DELETE CASCADE;
+    END IF;
+END $$;
+
 -- Reload PostgREST schema cache to immediately resolve column caching issues
 NOTIFY pgrst, 'reload schema';
 
