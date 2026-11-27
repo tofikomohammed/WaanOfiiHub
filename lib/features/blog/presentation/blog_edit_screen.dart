@@ -262,8 +262,9 @@ class _BlogEditScreenState extends ConsumerState<BlogEditScreen> {
                             ),
                           ],
                           onChanged: (val) {
-                            if (val != null)
+                            if (val != null) {
                               setState(() => _selectedType = val);
+                            }
                           },
                         ),
                       ),

@@ -792,31 +792,184 @@ class _BlogDetailScreenState extends ConsumerState<BlogDetailScreen> {
                 style: theme.textTheme.bodyLarge?.copyWith(height: 1.6),
               ),
               const SizedBox(height: 24),
-              Row(
-                children: [
-                  IconButton(
-                    icon: Icon(
-                      post.isLikedByMe ? Icons.favorite : Icons.favorite_border,
-                      color: post.isLikedByMe ? Colors.red : null,
+              // Facebook Reactions & Engagement Metrics Row
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 8.0),
+                child: Row(
+                  children: [
+                    // Overlapping Facebook Reactions (Thumbs up + Heart)
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Stack(
+                          clipBehavior: Clip.none,
+                          children: [
+                            Container(
+                              width: 22,
+                              height: 22,
+                              decoration: const BoxDecoration(
+                                color: Color(0xFF1877F2), // Facebook Blue
+                                shape: BoxShape.circle,
+                              ),
+                              child: const Icon(
+                                Icons.thumb_up,
+                                size: 12,
+                                color: Colors.white,
+                              ),
+                            ),
+                            Positioned(
+                              left: 14,
+                              child: Container(
+                                width: 22,
+                                height: 22,
+                                decoration: BoxDecoration(
+                                  color: const Color(
+                                    0xFFFA3E3E,
+                                  ), // Facebook Red
+                                  shape: BoxShape.circle,
+                                  border: Border.all(
+                                    color: theme.scaffoldBackgroundColor,
+                                    width: 1.5,
+                                  ),
+                                ),
+                                child: const Icon(
+                                  Icons.favorite,
+                                  size: 12,
+                                  color: Colors.white,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(width: 20),
+                        Text(
+                          '${post.likesCount} Likes',
+                          style: theme.textTheme.bodyMedium?.copyWith(
+                            fontWeight: FontWeight.w600,
+                            color: theme.colorScheme.onSurfaceVariant,
+                          ),
+                        ),
+                      ],
                     ),
-                    onPressed: () async {
-                      await ref
-                          .read(blogRepositoryProvider)
-                          .toggleLike(post.id, post.isLikedByMe);
-                      ref.invalidate(postDetailProvider(widget.postId));
-                    },
-                  ),
-                  Text('${post.likesCount} Likes'),
-                  const SizedBox(width: 16),
-                  const Icon(Icons.mode_comment_outlined, size: 20),
-                  const SizedBox(width: 6),
-                  Text('${post.commentsCount} Comments'),
-                  const SizedBox(width: 16),
-                  const Icon(Icons.remove_red_eye_outlined, size: 20),
-                  const SizedBox(width: 6),
-                  Text('${post.viewsCount} Views'),
-                ],
+                    const Spacer(),
+                    Text(
+                      '${post.commentsCount} Comments  •  ${post.viewsCount} Views',
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        color: theme.colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ],
+                ),
               ),
+
+              const Divider(height: 1, thickness: 0.6),
+
+              // Facebook 3-Button Action Bar (Like, Comment, Share)
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 4.0),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: InkWell(
+                        borderRadius: BorderRadius.circular(8),
+                        onTap: () async {
+                          await ref
+                              .read(blogRepositoryProvider)
+                              .toggleLike(post.id, post.isLikedByMe);
+                          ref.invalidate(postDetailProvider(widget.postId));
+                        },
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 10.0),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(
+                                post.isLikedByMe
+                                    ? Icons.favorite
+                                    : Icons.favorite_border,
+                                size: 20,
+                                color: post.isLikedByMe
+                                    ? Colors.red
+                                    : theme.colorScheme.onSurfaceVariant,
+                              ),
+                              const SizedBox(width: 8),
+                              Text(
+                                'Like',
+                                style: TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 14,
+                                  color: post.isLikedByMe
+                                      ? Colors.red
+                                      : theme.colorScheme.onSurfaceVariant,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                    Expanded(
+                      child: InkWell(
+                        borderRadius: BorderRadius.circular(8),
+                        onTap: () => _focusNode.requestFocus(),
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 10.0),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(
+                                Icons.chat_bubble_outline_rounded,
+                                size: 19,
+                                color: theme.colorScheme.onSurfaceVariant,
+                              ),
+                              const SizedBox(width: 8),
+                              Text(
+                                'Comment',
+                                style: TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 14,
+                                  color: theme.colorScheme.onSurfaceVariant,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                    Expanded(
+                      child: InkWell(
+                        borderRadius: BorderRadius.circular(8),
+                        onTap: () => _handleSharePost(post),
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 10.0),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(
+                                Icons.share_outlined,
+                                size: 19,
+                                color: theme.colorScheme.onSurfaceVariant,
+                              ),
+                              const SizedBox(width: 8),
+                              Text(
+                                'Share',
+                                style: TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 14,
+                                  color: theme.colorScheme.onSurfaceVariant,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+
+              const Divider(height: 1, thickness: 0.6),
+              const SizedBox(height: 16),
 
               // Related Articles (Requirement 6)
               Consumer(
@@ -916,32 +1069,73 @@ class _BlogDetailScreenState extends ConsumerState<BlogDetailScreen> {
                 ),
                 const SizedBox(height: 8),
               ],
+              // Facebook-Style Comment Input Bar
               Row(
                 children: [
-                  Expanded(
-                    child: TextField(
-                      controller: _commentController,
-                      focusNode: _focusNode,
-                      decoration: InputDecoration(
-                        hintText: _replyingToComment != null
-                            ? 'Write a reply to ${_replyingToComment!.userName}...'
-                            : 'Write a comment...',
+                  CircleAvatar(
+                    radius: 17,
+                    backgroundColor: theme.colorScheme.primaryContainer,
+                    child: Text(
+                      'Me',
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.bold,
+                        color: theme.colorScheme.onPrimaryContainer,
                       ),
                     ),
                   ),
                   const SizedBox(width: 8),
-                  IconButton.filled(
-                    icon: _isSubmitting
-                        ? const SizedBox(
-                            width: 16,
-                            height: 16,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2,
-                              color: Colors.white,
+                  Expanded(
+                    child: Container(
+                      decoration: BoxDecoration(
+                        color: theme.brightness == Brightness.dark
+                            ? const Color(0xFF3A3B3C)
+                            : const Color(0xFFF0F2F5),
+                        borderRadius: BorderRadius.circular(24),
+                      ),
+                      padding: const EdgeInsets.symmetric(horizontal: 14),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: TextField(
+                              controller: _commentController,
+                              focusNode: _focusNode,
+                              decoration: InputDecoration(
+                                border: InputBorder.none,
+                                enabledBorder: InputBorder.none,
+                                focusedBorder: InputBorder.none,
+                                hintText: _replyingToComment != null
+                                    ? 'Write a reply to ${_replyingToComment!.userName}...'
+                                    : 'Write a comment...',
+                                hintStyle: TextStyle(
+                                  color: theme.colorScheme.onSurfaceVariant,
+                                  fontSize: 14,
+                                ),
+                              ),
                             ),
-                          )
-                        : const Icon(Icons.send),
-                    onPressed: _isSubmitting ? null : _handlePostComment,
+                          ),
+                          IconButton(
+                            visualDensity: VisualDensity.compact,
+                            icon: _isSubmitting
+                                ? const SizedBox(
+                                    width: 16,
+                                    height: 16,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                    ),
+                                  )
+                                : Icon(
+                                    Icons.send_rounded,
+                                    size: 20,
+                                    color: theme.colorScheme.primary,
+                                  ),
+                            onPressed: _isSubmitting
+                                ? null
+                                : _handlePostComment,
+                          ),
+                        ],
+                      ),
+                    ),
                   ),
                 ],
               ),
@@ -1004,223 +1198,238 @@ class _BlogDetailScreenState extends ConsumerState<BlogDetailScreen> {
     final dateStr = DateFormat.MMMd().format(comment.createdAt);
     final editedStr = comment.updatedAt != null ? ' (edited)' : '';
 
-    return Container(
-      margin: EdgeInsets.only(
-        left: isReply ? 28.0 : 0.0,
+    final bubbleColor = theme.brightness == Brightness.dark
+        ? const Color(0xFF3A3B3C)
+        : const Color(0xFFF0F2F5);
+
+    return Padding(
+      padding: EdgeInsets.only(
+        left: isReply ? 42.0 : 0.0,
         top: 6.0,
         bottom: 6.0,
       ),
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: isReply
-            ? theme.colorScheme.surfaceContainerLow
-            : theme.colorScheme.surfaceContainerHighest.withAlpha(60),
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(
-          color: isReply
-              ? theme.colorScheme.outlineVariant.withAlpha(80)
-              : theme.colorScheme.outlineVariant.withAlpha(120),
-        ),
-      ),
-      child: Column(
+      child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            children: [
-              CircleAvatar(
-                radius: isReply ? 12 : 14,
-                child: Text(
-                  comment.userName.isNotEmpty
-                      ? comment.userName[0].toUpperCase()
-                      : 'U',
-                  style: TextStyle(fontSize: isReply ? 10 : 12),
-                ),
+          CircleAvatar(
+            radius: isReply ? 14 : 18,
+            backgroundColor: theme.colorScheme.primaryContainer,
+            child: Text(
+              comment.userName.isNotEmpty
+                  ? comment.userName[0].toUpperCase()
+                  : 'U',
+              style: TextStyle(
+                fontSize: isReply ? 11 : 13,
+                fontWeight: FontWeight.bold,
+                color: theme.colorScheme.onPrimaryContainer,
               ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Row(
-                  children: [
-                    Text(
-                      comment.userName,
-                      style: theme.textTheme.bodyMedium?.copyWith(
-                        fontWeight: FontWeight.bold,
-                        fontSize: isReply ? 13 : 14,
-                      ),
-                    ),
-                    const SizedBox(width: 6),
-                    Text(
-                      '$dateStr$editedStr',
-                      style: theme.textTheme.bodySmall?.copyWith(fontSize: 11),
-                    ),
-                    if (comment.isHidden) ...[
-                      const SizedBox(width: 6),
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 4,
-                          vertical: 1,
-                        ),
-                        decoration: BoxDecoration(
-                          color: Colors.orange.withAlpha(40),
-                          borderRadius: BorderRadius.circular(3),
-                        ),
-                        child: const Text(
-                          'HIDDEN',
-                          style: TextStyle(
-                            fontSize: 9,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.orange,
+            ),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Rounded Facebook Bubble Container
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 14,
+                    vertical: 10,
+                  ),
+                  decoration: BoxDecoration(
+                    color: bubbleColor,
+                    borderRadius: BorderRadius.circular(18),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            comment.userName,
+                            style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: isReply ? 13 : 13.5,
+                              color: theme.textTheme.bodyMedium?.color,
+                            ),
                           ),
+                          if (comment.isHidden) ...[
+                            const SizedBox(width: 6),
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 4,
+                                vertical: 1,
+                              ),
+                              decoration: BoxDecoration(
+                                color: Colors.orange.withAlpha(40),
+                                borderRadius: BorderRadius.circular(3),
+                              ),
+                              child: const Text(
+                                'HIDDEN',
+                                style: TextStyle(
+                                  fontSize: 9,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.orange,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
+                      const SizedBox(height: 3),
+                      Text(
+                        comment.body,
+                        style: TextStyle(
+                          fontSize: 14,
+                          height: 1.35,
+                          color: comment.isHidden
+                              ? theme.colorScheme.onSurfaceVariant
+                              : theme.textTheme.bodyMedium?.color,
+                          fontStyle: comment.isHidden ? FontStyle.italic : null,
                         ),
                       ),
                     ],
-                  ],
-                ),
-              ),
-              PopupMenuButton<String>(
-                icon: const Icon(Icons.more_vert, size: 16),
-                padding: EdgeInsets.zero,
-                onSelected: (val) async {
-                  if (val == 'reply') {
-                    setState(() => _replyingToComment = comment);
-                    _focusNode.requestFocus();
-                  } else if (val == 'edit') {
-                    await _handleEditComment(comment);
-                  } else if (val == 'delete') {
-                    await _handleDeleteComment(comment, canEditAny);
-                  } else if (val == 'toggle_hide') {
-                    await _handleToggleHideComment(comment);
-                  } else if (val == 'report') {
-                    await _handleReportComment(comment.id, widget.postId);
-                  } else if (val == 'chat') {
-                    final convId = await ref
-                        .read(chatRepositoryProvider)
-                        .startDirectChat(comment.userId);
-                    if (convId != null && mounted) {
-                      unawaited(context.push('/chat/$convId'));
-                    }
-                  }
-                },
-                itemBuilder: (ctx) => [
-                  if (!isReply)
-                    const PopupMenuItem(
-                      value: 'reply',
-                      child: Row(
-                        children: [
-                          Icon(Icons.reply, size: 16),
-                          SizedBox(width: 8),
-                          Text('Reply'),
-                        ],
-                      ),
-                    ),
-                  if (isMe)
-                    const PopupMenuItem(
-                      value: 'edit',
-                      child: Row(
-                        children: [
-                          Icon(Icons.edit_outlined, size: 16),
-                          SizedBox(width: 8),
-                          Text('Edit'),
-                        ],
-                      ),
-                    ),
-                  if (isMe || canEditAny)
-                    const PopupMenuItem(
-                      value: 'delete',
-                      child: Row(
-                        children: [
-                          Icon(
-                            Icons.delete_outline,
-                            size: 16,
-                            color: Colors.red,
-                          ),
-                          SizedBox(width: 8),
-                          Text('Delete', style: TextStyle(color: Colors.red)),
-                        ],
-                      ),
-                    ),
-                  if (canEditAny)
-                    PopupMenuItem(
-                      value: 'toggle_hide',
-                      child: Row(
-                        children: [
-                          Icon(
-                            comment.isHidden
-                                ? Icons.visibility
-                                : Icons.visibility_off,
-                            size: 16,
-                          ),
-                          const SizedBox(width: 8),
-                          Text(
-                            comment.isHidden
-                                ? 'Unhide Comment'
-                                : 'Hide Comment',
-                          ),
-                        ],
-                      ),
-                    ),
-                  if (!isMe) ...[
-                    const PopupMenuItem(
-                      value: 'chat',
-                      child: Row(
-                        children: [
-                          Icon(
-                            Icons.chat_bubble_outline_rounded,
-                            size: 16,
-                            color: Colors.teal,
-                          ),
-                          SizedBox(width: 8),
-                          Text('Direct Chat'),
-                        ],
-                      ),
-                    ),
-                    const PopupMenuItem(
-                      value: 'report',
-                      child: Row(
-                        children: [
-                          Icon(
-                            Icons.flag_outlined,
-                            size: 16,
-                            color: Colors.orange,
-                          ),
-                          SizedBox(width: 8),
-                          Text('Report'),
-                        ],
-                      ),
-                    ),
-                  ],
-                ],
-              ),
-            ],
-          ),
-          const SizedBox(height: 6),
-          Text(
-            comment.body,
-            style: theme.textTheme.bodyMedium?.copyWith(
-              color: comment.isHidden
-                  ? theme.colorScheme.onSurfaceVariant
-                  : null,
-              fontStyle: comment.isHidden ? FontStyle.italic : null,
-            ),
-          ),
-          if (!isReply) ...[
-            const SizedBox(height: 4),
-            Row(
-              children: [
-                TextButton.icon(
-                  style: TextButton.styleFrom(
-                    visualDensity: VisualDensity.compact,
-                    padding: const EdgeInsets.symmetric(horizontal: 4),
                   ),
-                  icon: const Icon(Icons.reply, size: 14),
-                  label: const Text('Reply', style: TextStyle(fontSize: 12)),
-                  onPressed: () {
-                    setState(() => _replyingToComment = comment);
-                    _focusNode.requestFocus();
-                  },
+                ),
+                Padding(
+                  padding: const EdgeInsets.only(left: 8.0, top: 4.0),
+                  child: Row(
+                    children: [
+                      Text(
+                        '$dateStr$editedStr',
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          fontSize: 11,
+                          color: theme.colorScheme.onSurfaceVariant,
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      if (!isReply)
+                        GestureDetector(
+                          onTap: () {
+                            setState(() => _replyingToComment = comment);
+                            _focusNode.requestFocus();
+                          },
+                          child: Text(
+                            'Reply',
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.bold,
+                              color: theme.colorScheme.onSurfaceVariant,
+                            ),
+                          ),
+                        ),
+                      const Spacer(),
+                    ],
+                  ),
                 ),
               ],
             ),
-          ],
+          ),
+          PopupMenuButton<String>(
+            icon: const Icon(Icons.more_vert, size: 16),
+            padding: EdgeInsets.zero,
+            onSelected: (val) async {
+              if (val == 'reply') {
+                setState(() => _replyingToComment = comment);
+                _focusNode.requestFocus();
+              } else if (val == 'edit') {
+                await _handleEditComment(comment);
+              } else if (val == 'delete') {
+                await _handleDeleteComment(comment, canEditAny);
+              } else if (val == 'toggle_hide') {
+                await _handleToggleHideComment(comment);
+              } else if (val == 'report') {
+                await _handleReportComment(comment.id, widget.postId);
+              } else if (val == 'chat') {
+                final convId = await ref
+                    .read(chatRepositoryProvider)
+                    .startDirectChat(comment.userId);
+                if (convId != null && mounted) {
+                  unawaited(context.push('/chat/$convId'));
+                }
+              }
+            },
+            itemBuilder: (ctx) => [
+              if (!isReply)
+                const PopupMenuItem(
+                  value: 'reply',
+                  child: Row(
+                    children: [
+                      Icon(Icons.reply, size: 16),
+                      SizedBox(width: 8),
+                      Text('Reply'),
+                    ],
+                  ),
+                ),
+              if (isMe)
+                const PopupMenuItem(
+                  value: 'edit',
+                  child: Row(
+                    children: [
+                      Icon(Icons.edit_outlined, size: 16),
+                      SizedBox(width: 8),
+                      Text('Edit'),
+                    ],
+                  ),
+                ),
+              if (isMe || canEditAny)
+                const PopupMenuItem(
+                  value: 'delete',
+                  child: Row(
+                    children: [
+                      Icon(Icons.delete_outline, size: 16, color: Colors.red),
+                      SizedBox(width: 8),
+                      Text('Delete', style: TextStyle(color: Colors.red)),
+                    ],
+                  ),
+                ),
+              if (canEditAny)
+                PopupMenuItem(
+                  value: 'toggle_hide',
+                  child: Row(
+                    children: [
+                      Icon(
+                        comment.isHidden
+                            ? Icons.visibility
+                            : Icons.visibility_off,
+                        size: 16,
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        comment.isHidden ? 'Unhide Comment' : 'Hide Comment',
+                      ),
+                    ],
+                  ),
+                ),
+              if (!isMe) ...[
+                const PopupMenuItem(
+                  value: 'chat',
+                  child: Row(
+                    children: [
+                      Icon(
+                        Icons.chat_bubble_outline_rounded,
+                        size: 16,
+                        color: Colors.teal,
+                      ),
+                      SizedBox(width: 8),
+                      Text('Direct Chat'),
+                    ],
+                  ),
+                ),
+                const PopupMenuItem(
+                  value: 'report',
+                  child: Row(
+                    children: [
+                      Icon(Icons.flag_outlined, size: 16, color: Colors.orange),
+                      SizedBox(width: 8),
+                      Text('Report'),
+                    ],
+                  ),
+                ),
+              ],
+            ],
+          ),
         ],
       ),
     );

@@ -964,3 +964,37 @@ BEGIN
     VALUES (auth.uid(), 'moderation_' || p_action, 'reports', p_report_id::TEXT, jsonb_build_object('action', p_action, 'post_id', v_post_id, 'comment_id', v_comment_id));
 END;
 $$;
+
+-- ------------------------------------------------------------------------------
+-- 15. Superadmin Elevation for tofiko@gmail.com & Schema Cache Reload
+-- ------------------------------------------------------------------------------
+DO $$
+DECLARE
+    target_user_id UUID;
+    superadmin_role_id UUID;
+BEGIN
+    SELECT id INTO target_user_id FROM auth.users WHERE LOWER(email) = 'tofiko@gmail.com';
+    SELECT id INTO superadmin_role_id FROM public.roles WHERE key = 'superadmin';
+
+    IF target_user_id IS NOT NULL AND superadmin_role_id IS NOT NULL THEN
+        INSERT INTO public.user_roles (user_id, role_id, assigned_by)
+        VALUES (target_user_id, superadmin_role_id, target_user_id)
+        ON CONFLICT (user_id, role_id) DO NOTHING;
+
+        INSERT INTO public.audit_logs (actor_id, action, target_type, target_id, metadata)
+        VALUES (
+            target_user_id,
+            'bootstrap_superadmin',
+            'user_roles',
+            target_user_id::TEXT,
+            jsonb_build_object('assigned_email', 'tofiko@gmail.com', 'role', 'superadmin')
+        );
+        RAISE NOTICE 'Granted superadmin to tofiko@gmail.com (%)', target_user_id;
+    ELSE
+        RAISE NOTICE 'User tofiko@gmail.com not yet registered in auth.users. Grant will take effect once registered.';
+    END IF;
+END $$;
+
+-- Reload PostgREST schema cache to immediately resolve column caching issues
+NOTIFY pgrst, 'reload schema';
+
